@@ -15,6 +15,8 @@ import {
   DialogActions,
   IconButton,
   Avatar,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -45,33 +47,40 @@ export default function CMSPage() {
   const [editAgendaIndex, setEditAgendaIndex] = useState(null);
 
   useEffect(() => {
-    fetchTree();
-    fetchHomeVideo();
-    fetchAgenda();
+    refreshAll();
   }, []);
 
   const fetchTree = async () => {
-    setLoading(true);
     const res = await fetch("/api/nodes/tree");
-    const data = await res.json();
-    setTree(data);
-    setLoading(false);
+    return res.json();
   };
 
   const fetchHomeVideo = async () => {
     const res = await fetch("/api/home");
-    const data = await res.json();
-    setHomeVideo(data);
+    return res.json();
   };
 
   const fetchAgenda = async () => {
     const res = await fetch("/api/agenda");
     const data = await res.json();
-    setAgenda(data[0] || null);
+    return data[0] || null;
   };
 
-  const handleDeleteClick = (node) => {
-    setNodeToDelete(node);
+  const refreshAll = async () => {
+    setLoading(true);
+    const [treeData, homeData, agendaData] = await Promise.all([
+      fetchTree(),
+      fetchHomeVideo(),
+      fetchAgenda(),
+    ]);
+    setTree(treeData);
+    setHomeVideo(homeData);
+    setAgenda(agendaData);
+    setLoading(false);
+  };
+
+  const handleDeleteClick = (item, idx) => {
+    setNodeToDelete({ ...item, idx });
     setDeleteConfirmOpen(true);
   };
 
@@ -79,24 +88,23 @@ export default function CMSPage() {
     if (!nodeToDelete) return;
     setDeleting(true);
     try {
-      if (nodeToDelete._id) {
-        // deleting a node
-        await fetch(`/api/nodes/${nodeToDelete._id}`, { method: "DELETE" });
-        await fetchTree();
-      } else if (nodeToDelete.idx !== undefined) {
-        // deleting an agenda item
+      if (nodeToDelete.idx !== undefined) {
+        // delete agenda item
         const updatedItems = agenda.items.filter(
           (_, i) => i !== nodeToDelete.idx
         );
-        const payload = { ...agenda, items: updatedItems };
+        const payload = { items: updatedItems };
         await fetch(`/api/agenda/${agenda._id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        await fetchAgenda();
+        setAgenda(await fetchAgenda());
+      } else if (nodeToDelete._id) {
+        // delete node
+        await fetch(`/api/nodes/${nodeToDelete._id}`, { method: "DELETE" });
+        setTree(await fetchTree());
       }
-
       setDeleteConfirmOpen(false);
       setNodeToDelete(null);
     } catch (err) {
@@ -106,23 +114,17 @@ export default function CMSPage() {
     }
   };
 
-  const refreshAll = async () => {
-    setLoading(true);
-    await Promise.all([fetchTree(), fetchHomeVideo(), fetchAgenda()]);
-    setLoading(false);
-  };
-
   return (
     <Box
       sx={{
         p: 4,
         backgroundColor: "#f9f9f9",
-        color: "#333",
         minHeight: "100vh",
+        color: "#333",
       }}
     >
       <Typography variant="h4" gutterBottom>
-        CMS – Manage Nodes & Home Video
+        CMS – Manage Nodes & Agenda
       </Typography>
 
       <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
@@ -145,13 +147,16 @@ export default function CMSPage() {
         >
           Create Node
         </Button>
-
         <Button
           variant="contained"
           color="success"
-          onClick={() => setOpenAgendaModal(true)}
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setOpenAgendaModal(true);
+            setEditAgendaIndex(null);
+          }}
         >
-          Manage Agenda
+          Add Speaker
         </Button>
         <Button
           variant="outlined"
@@ -162,7 +167,7 @@ export default function CMSPage() {
         </Button>
       </Stack>
 
-      {/* Show current home video */}
+      {/* Show home video */}
       {homeVideo?.video?.s3Url && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle1" gutterBottom>
@@ -175,6 +180,8 @@ export default function CMSPage() {
           />
         </Box>
       )}
+
+      {/* Nodes */}
       {loading ? (
         <CircularProgress />
       ) : (
@@ -184,7 +191,10 @@ export default function CMSPage() {
             setEditNode(node);
             setOpenForm(true);
           }}
-          onDelete={handleDeleteClick}
+          onDelete={(node) => {
+            setNodeToDelete(node);
+            setDeleteConfirmOpen(true);
+          }}
           onAddChild={(node) => {
             setParentNode(node);
             setEditNode(null);
@@ -193,6 +203,7 @@ export default function CMSPage() {
         />
       )}
 
+      {/* Agenda */}
       {agenda && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h5" gutterBottom>
@@ -200,7 +211,7 @@ export default function CMSPage() {
           </Typography>
           {agenda.items && agenda.items.length > 0 ? (
             [...agenda.items]
-              .sort((a, b) => a.startTime.localeCompare(b.startTime)) // auto sort
+              .sort((a, b) => a.startTime.localeCompare(b.startTime))
               .map((item, idx) => (
                 <Paper
                   key={idx}
@@ -217,11 +228,36 @@ export default function CMSPage() {
                     justifyContent="space-between"
                     alignItems="center"
                   >
-                    <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                    <Typography variant="subtitle1" fontWeight="bold">
                       {item.startTime} – {item.endTime}
                     </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      {/* Toggle Active */}
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={item.isActive || false}
+                            onChange={async (e) => {
+                              const updatedItems = agenda.items.map(
+                                (it, i) => ({
+                                  ...it,
+                                  isActive:
+                                    i === idx ? e.target.checked : false, // only one active
+                                })
+                              );
 
-                    <Stack direction="row" spacing={1}>
+                              const payload = { items: updatedItems };
+                              await fetch(`/api/agenda/${agenda._id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload),
+                              });
+                              setAgenda({ ...agenda, items: updatedItems });
+                            }}
+                          />
+                        }
+                        label="Active"
+                      />
                       <IconButton
                         color="primary"
                         onClick={() => {
@@ -233,52 +269,32 @@ export default function CMSPage() {
                       </IconButton>
                       <IconButton
                         color="error"
-                        onClick={() => {
-                          setNodeToDelete({ ...item, idx }); // reuse confirm modal
-                          setDeleteConfirmOpen(true);
-                        }}
+                        onClick={() => handleDeleteClick(item, idx)}
                       >
                         <DeleteIcon />
                       </IconButton>
                     </Stack>
                   </Stack>
 
-                  {/* Title/Description */}
-                  <Typography>{item.title}</Typography>
-                  {item.description && (
-                    <Typography variant="body2" color="textSecondary">
-                      {item.description}
-                    </Typography>
-                  )}
-
-                  {/* Speakers */}
-                  {item.speakers &&
-                    item.speakers.map((spk, sIdx) => (
-                      <Stack
-                        key={sIdx}
-                        direction="row"
-                        alignItems="center"
-                        spacing={1}
-                        sx={{ ml: 1, mt: 0.5 }}
-                      >
-                        <Avatar
-                          src={spk.photoUrl || ""}
-                          alt={spk.name}
-                          sx={{ width: 28, height: 28 }}
-                        />
-                        <Typography variant="body2">
-                          {spk.role ? `${spk.role}: ` : ""}
-                          {spk.name}
-                          {spk.title ? ` (${spk.title}` : ""}
-                          {spk.company
-                            ? `${spk.title ? ", " : " ("}${spk.company})`
-                            : spk.title
-                            ? ")"
-                            : ""}
-                        </Typography>
-                      </Stack>
-                    ))}
-
+                  <Stack direction="row" alignItems="center" spacing={1} mt={1}>
+                    <Avatar
+                      src={item.photoUrl || ""}
+                      alt={item.name}
+                      sx={{ width: 40, height: 40 }}
+                    />
+                    <Box>
+                      <Typography variant="h6">{item.name}</Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {item.title ? item.title : ""}
+                        {item.company
+                          ? item.title
+                            ? `, ${item.company}`
+                            : item.company
+                          : ""}
+                        {item.role ? ` • ${item.role}` : ""}
+                      </Typography>
+                    </Box>
+                  </Stack>
                   {item.isActive && (
                     <Typography variant="caption" color="green">
                       🔴 Active Now
@@ -294,7 +310,7 @@ export default function CMSPage() {
         </Box>
       )}
 
-      {/* Create/Edit Form */}
+      {/* Node Form */}
       {openForm && (
         <Dialog
           open={openForm}
@@ -308,7 +324,7 @@ export default function CMSPage() {
           <DialogContent dividers>
             <CMSForm
               onClose={() => setOpenForm(false)}
-              onCreated={fetchTree}
+              onCreated={refreshAll}
               initialData={editNode}
               parent={parentNode?._id}
               allNodes={tree}
@@ -320,7 +336,7 @@ export default function CMSPage() {
         </Dialog>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <Dialog
         open={deleteConfirmOpen}
         onClose={() => !deleting && setDeleteConfirmOpen(false)}
@@ -328,14 +344,14 @@ export default function CMSPage() {
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {nodeToDelete?._id ? (
+            {nodeToDelete?.idx !== undefined ? (
               <>
-                Are you sure you want to delete{" "}
-                <strong>{nodeToDelete?.title}</strong> node?
+                Are you sure you want to delete agenda item{" "}
+                <strong>{nodeToDelete?.name}</strong>?
               </>
             ) : (
               <>
-                Are you sure you want to delete agenda item{" "}
+                Are you sure you want to delete node{" "}
                 <strong>{nodeToDelete?.title}</strong>?
               </>
             )}
@@ -363,11 +379,12 @@ export default function CMSPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Modals */}
       {openHomeModal && (
         <HomeVideoModal
           open={openHomeModal}
           onClose={() => setOpenHomeModal(false)}
-          onUploaded={fetchHomeVideo}
+          onUploaded={refreshAll}
         />
       )}
 
@@ -377,10 +394,10 @@ export default function CMSPage() {
           onClose={() => {
             setOpenAgendaModal(false);
             setEditAgendaIndex(null);
-            fetchAgenda();
+            refreshAll();
           }}
-          editIndex={editAgendaIndex}
           agenda={agenda}
+          editIndex={editAgendaIndex}
         />
       )}
     </Box>

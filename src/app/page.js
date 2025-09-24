@@ -76,19 +76,11 @@ export default function HomePage() {
       const list = await listRes.json();
       const doc = list?.[0] || null;
 
-      setAgendaActive(active);
+      setAgendaActive(active); // { activeItem, nextItem } (time-based)
       setAgendaDoc(doc);
 
-      const speakers = (doc?.items || []).flatMap((it) =>
-        (it.speakers || []).map((spk, i) => ({
-          ...spk,
-          _key: `${spk.name}-${it.startTime}-${i}`,
-          sessionStart: it.startTime,
-          sessionEnd: it.endTime,
-          sessionTitle: it.title,
-        }))
-      );
-      setAllSpeakers(speakers);
+      // flat speakers list from new schema
+      setAllSpeakers(doc?.items || []);
     };
 
     fetchAgendaStuff();
@@ -96,22 +88,18 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // derive agenda
-  const activeItem = agendaActive?.activeItem || null;
-  const nextItem = agendaActive?.nextItem || null;
-  const activeSpeaker = activeItem?.speakers?.[0] || null;
-  const nextSpeaker = nextItem?.speakers?.[0] || null;
+  // derive agenda (prefer manual toggle, fallback to time-based)
+  const explicitActive =
+    (agendaDoc?.items || []).find((it) => it.isActive) || null;
 
-  // build marquee list
-  const nonActiveSpeakers = allSpeakers.filter(
-    (spk) =>
-      !(
-        activeSpeaker &&
-        spk.name === activeSpeaker.name &&
-        spk.sessionStart === activeItem?.startTime
-      )
+  const activeSpeaker = explicitActive || agendaActive?.activeItem || null;
+
+  const nextSpeaker = agendaActive?.nextItem || null;
+
+  // build marquee list (exclude the active one)
+  const orderedSpeakers = (allSpeakers || []).filter(
+    (spk) => !(activeSpeaker && spk._id === activeSpeaker._id)
   );
-  const orderedSpeakers = nonActiveSpeakers;
 
   // 3. marquee scroll effect
   useEffect(() => {
@@ -408,28 +396,70 @@ export default function HomePage() {
             alignItems="center"
             justifyContent="center"
             sx={{
-              minWidth: { xs: "28%", sm: "22%", md: "18%" },
+              minWidth: { xs: "32%", sm: "24%", md: "20%" },
               height: "100%",
               px: 2,
-              py: 1,
-              borderRadius: 2,
-              bgcolor: "white",
+              py: 2,
               mr: 2,
-              boxShadow: "0 0 18px rgba(0,200,83,0.35)",
-              animation: `${pulseGlow} 2s infinite`,
+              borderRadius: 3,
+              bgcolor: "rgba(255,255,255,0.7)",
+              backdropFilter: "blur(10px)",
+              boxShadow: "0 8px 24px rgba(0,200,83,0.25)",
+              position: "relative",
+              overflow: "hidden",
             }}
           >
+            {/* Glow ring */}
+            <Box
+              sx={{
+                position: "absolute",
+                inset: -4,
+                borderRadius: "inherit",
+                background:
+                  "radial-gradient(circle at center, rgba(0,200,83,0.2), transparent 70%)",
+                animation: `${pulseGlow} 3s infinite`,
+                zIndex: 0,
+              }}
+            />
+
+            {/* LIVE badge */}
+            <Box
+              sx={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                bgcolor: "#e53935",
+                color: "white",
+                fontSize: "0.7rem",
+                fontWeight: "bold",
+                px: 1.2,
+                py: 0.3,
+                borderRadius: 1,
+                zIndex: 2,
+              }}
+            >
+              LIVE NOW
+            </Box>
+
+            {/* Avatar with gradient ring */}
             <Avatar
               src={activeSpeaker.photoUrl || ""}
               alt={activeSpeaker.name}
               sx={{
-                width: "14vh",
-                height: "14vh",
+                width: "13vh",
+                height: "13vh",
+                border: "3px solid transparent",
+                borderRadius: "50%",
+                backgroundImage:
+                  "linear-gradient(white, white), linear-gradient(135deg, #00c853, #b2ff59)",
+                backgroundOrigin: "border-box",
+                backgroundClip: "content-box, border-box",
                 mb: 1,
-                animation: `${pulseGlow} 2s infinite`,
+                zIndex: 1,
               }}
             />
-            <Typography fontWeight="bold" textAlign="center" noWrap>
+
+            <Typography fontWeight="bold" textAlign="center" noWrap zIndex={1}>
               {activeSpeaker.name}
             </Typography>
             {activeSpeaker.title && (
@@ -438,6 +468,7 @@ export default function HomePage() {
                 color="text.secondary"
                 textAlign="center"
                 noWrap
+                zIndex={1}
               >
                 {activeSpeaker.title}
               </Typography>
@@ -466,20 +497,19 @@ export default function HomePage() {
             }}
           >
             {orderedSpeakers.map((spk) => {
-              const isNext =
-                nextSpeaker &&
-                spk.name === nextSpeaker.name &&
-                spk.sessionStart === nextItem?.startTime;
+              const isNext = nextSpeaker && spk._id === nextSpeaker._id;
 
               return (
                 <Stack
-                  key={spk._key}
+                  key={spk._id || `${spk.name}-${spk.startTime}`}
+                  direction="column"
                   alignItems="center"
                   justifyContent="center"
+                  spacing={0.5} // small vertical spacing between items
                   sx={{
                     minWidth: "160px",
                     px: 2,
-                    py: 1,
+                    py: 1.5,
                     borderRadius: 2,
                     bgcolor: "white",
                     border: isNext ? "3px solid #ff9800" : "1px solid #ddd",
@@ -488,21 +518,41 @@ export default function HomePage() {
                   <Avatar
                     src={spk.photoUrl || ""}
                     alt={spk.name}
-                    sx={{ width: "9vh", height: "9vh", mb: 1 }}
+                    sx={{ width: "9vh", height: "9vh" }}
                   />
+
                   <Typography fontWeight="bold" textAlign="center" noWrap>
                     {spk.name}
                   </Typography>
-                  {spk.title && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      textAlign="center"
-                      noWrap
-                    >
-                      {spk.title}
-                    </Typography>
+
+                  {(spk.title || spk.company) && (
+                    <Stack direction="column" spacing={0.2} alignItems="center">
+                      {spk.title && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          textAlign="center"
+                          noWrap
+                        >
+                          {spk.title}
+                        </Typography>
+                      )}
+                      {spk.company && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          textAlign="center"
+                          noWrap
+                        >
+                          {spk.company}
+                        </Typography>
+                      )}
+                    </Stack>
                   )}
+
+                  <Typography fontWeight="bold" textAlign="center" noWrap>
+                    {spk.startTime} – {spk.endTime}
+                  </Typography>
                 </Stack>
               );
             })}

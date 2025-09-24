@@ -2,36 +2,23 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Agenda from "@/models/Agenda";
 
-function toTodayDate(timeStr) {
-  const [h, m] = timeStr.split(":");
-  const today = new Date();
-  today.setHours(parseInt(h), parseInt(m), 0, 0);
-  return today;
-}
-
 export async function GET() {
-  await dbConnect();
-  const agenda = await Agenda.findOne().lean();
-  if (!agenda)
-    return NextResponse.json({ error: "Agenda not found" }, { status: 404 });
+  try {
+    await dbConnect();
+    const doc = await Agenda.findOne().sort({ createdAt: -1 });
+    if (!doc) return NextResponse.json({ activeItem: null, nextItem: null });
 
-  const now = new Date();
+    const now = new Date();
+    const timeStr = now.toTimeString().slice(0, 5); // "HH:mm"
 
-  // 1. Manual active
-  let activeItem = agenda.items.find((i) => i.isActive);
-
-  // 2. Time-based
-  if (!activeItem && agenda.autoDetectActive) {
-    activeItem = agenda.items.find(
-      (i) => toTodayDate(i.startTime) <= now && toTodayDate(i.endTime) >= now
+    const items = doc.items || [];
+    const activeItem = items.find(
+      (it) => it.startTime <= timeStr && it.endTime >= timeStr
     );
+    const nextItem = items.find((it) => it.startTime > timeStr);
+
+    return NextResponse.json({ activeItem, nextItem });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  // 3. Next
-  const nextItem = agenda.items.find((i) => toTodayDate(i.startTime) > now);
-
-  return NextResponse.json({
-    activeItem: activeItem || null,
-    nextItem: nextItem || null,
-  });
 }
