@@ -13,6 +13,8 @@ import {
   Stack,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import { keyframes } from "@mui/system";
 
 // Glow animation
@@ -32,6 +34,7 @@ export default function HomePage() {
   const videoRef = useRef(null);
   const inactivityTimer = useRef(null);
   const [homeVideoKey, setHomeVideoKey] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
 
   // agenda state
   const [agendaActive, setAgendaActive] = useState(null);
@@ -116,11 +119,8 @@ export default function HomePage() {
     if (!el || orderedSpeakers.length === 0) return;
 
     const totalWidth = el.scrollWidth;
-    const visibleWidth = el.clientWidth;
-
-    // Always scroll — even if visibleWidth >= totalWidth
-    // Force distance to at least full width for continuous loop
-    const distance = Math.max(totalWidth, visibleWidth);
+    const visibleWidth = el.parentElement.clientWidth;
+    const distance = totalWidth > visibleWidth ? totalWidth : visibleWidth;
 
     const msPerPx = 30;
     const duration = distance * msPerPx;
@@ -132,13 +132,13 @@ export default function HomePage() {
       ],
       {
         duration,
-        iterations: Infinity, // loop forever
+        iterations: Infinity,
         easing: "linear",
       }
     );
 
     return () => anim.cancel();
-  }, [orderedSpeakers.length]);
+  }, [orderedSpeakers]);
 
   // 4. inactivity timer
   useEffect(() => {
@@ -156,20 +156,10 @@ export default function HomePage() {
 
   const resetToHome = () => {
     if (!home) return;
-    setCurrentVideo(home?.video?.s3Url || null);
     setCurrentNode(null);
+    setCurrentVideo(home?.video?.s3Url || null);
     setOpenAction(false);
     setHomeVideoKey((prev) => prev + 1);
-    setTimeout(() => {
-      if (videoRef.current) {
-        videoRef.current.play().catch((err) => {
-          console.warn(
-            "Autoplay with sound blocked until user interacts:",
-            err
-          );
-        });
-      }
-    }, 100);
   };
 
   const startInactivityTimer = () => {
@@ -234,7 +224,7 @@ export default function HomePage() {
   };
   return (
     <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* Top 80% — unchanged */}
+      {/* Top 80% */}
       <Box
         sx={{
           flex: 8,
@@ -250,6 +240,8 @@ export default function HomePage() {
             src={currentVideo}
             autoPlay
             playsInline
+            loop={currentNode === null}
+            muted={currentNode === null ? isMuted : false} // home muted toggle, others always sound
             onEnded={handleVideoEnded}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
@@ -257,6 +249,28 @@ export default function HomePage() {
           <Typography color="white" sx={{ p: 4 }}>
             No video available
           </Typography>
+        )}
+
+        {/* Show mute/unmute only on home */}
+        {currentNode === null && (
+          <IconButton
+            onClick={() => {
+              setIsMuted(!isMuted);
+              if (videoRef.current) {
+                videoRef.current.muted = !isMuted;
+              }
+            }}
+            sx={{
+              position: "absolute",
+              bottom: 20,
+              right: 20,
+              bgcolor: "rgba(0,0,0,0.5)",
+              color: "white",
+              "&:hover": { bgcolor: "rgba(0,0,0,0.7)" },
+            }}
+          >
+            {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
+          </IconButton>
         )}
 
         {topNodes.map((node, idx) => (
