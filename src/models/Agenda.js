@@ -11,7 +11,8 @@ const AgendaItemSchema = new mongoose.Schema({
     enum: ["speaker", "moderator", "presenter"],
     default: "speaker",
   },
-  photoUrl: String,
+  photoUrl: String,       // profile/avatar image
+  infoImageUrl: String,   // field for speaker info image
   isActive: { type: Boolean, default: false },
 });
 

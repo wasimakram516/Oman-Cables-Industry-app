@@ -24,6 +24,7 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
     company: "",
     role: "speaker",
     photoUrl: "",
+    infoImageUrl: "", 
     isActive: false,
   };
 
@@ -42,6 +43,35 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
     setFormData({ ...formData, [field]: value });
   };
 
+  const handleFileUpload = async (file, field) => {
+    try {
+      // 1. Ask API for presigned URL
+      const res = await fetch("/api/nodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          presign: true,
+          fileName: file.name,
+          fileType: file.type,
+          folder: "images",
+        }),
+      });
+      const { uploadURL, fileUrl } = await res.json();
+
+      // 2. Upload file directly to S3
+      await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      // 3. Save CloudFront URL into agenda item
+      handleChange(field, fileUrl);
+    } catch (err) {
+      console.error("❌ Upload failed:", err);
+    }
+  };
+
   const saveAgenda = async () => {
     setSaving(true);
     try {
@@ -52,7 +82,8 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
         updatedItems.push(formData);
       }
       const payload = { items: updatedItems };
-
+      console.log(payload);
+      
       const method = agenda?._id ? "PUT" : "POST";
       const url = agenda?._id ? `/api/agenda/${agenda._id}` : `/api/agenda`;
 
@@ -126,36 +157,46 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
                 hidden
                 accept="image/*"
                 type="file"
-                onChange={async (e) => {
+                onChange={(e) => {
                   const file = e.target.files[0];
-                  if (!file) return;
+                  if (file) handleFileUpload(file, "photoUrl");
+                }}
+              />
+            </Button>
+          </Stack>
 
-                  try {
-                    // 1. Ask API for presigned URL
-                    const res = await fetch("/api/nodes", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        presign: true,
-                        fileName: file.name,
-                        fileType: file.type,
-                        folder: "images",
-                      }),
-                    });
-                    const { uploadURL, fileUrl } = await res.json();
-
-                    // 2. Upload file directly to S3
-                    await fetch(uploadURL, {
-                      method: "PUT",
-                      headers: { "Content-Type": file.type },
-                      body: file,
-                    });
-
-                    // 3. Save CloudFront URL into agenda item
-                    handleChange("photoUrl", fileUrl);
-                  } catch (err) {
-                    console.error("❌ Upload failed:", err);
-                  }
+          {/* Speaker info image upload */}
+          <Stack direction="row" spacing={2} alignItems="center">
+            {formData.infoImageUrl ? (
+              <img
+                src={formData.infoImageUrl}
+                alt={`${formData.name}-info`}
+                style={{
+                  width: 64,
+                  height: 48,
+                  borderRadius: 4,
+                  objectFit: "cover",
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 64,
+                  height: 48,
+                  borderRadius: 4,
+                  bgcolor: "#eee",
+                }}
+              />
+            )}
+            <Button size="small" variant="outlined" component="label">
+              {formData.infoImageUrl ? "Change Info Image" : "Upload Info Image"}
+              <input
+                hidden
+                accept="image/*"
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) handleFileUpload(file, "infoImageUrl");
                 }}
               />
             </Button>

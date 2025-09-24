@@ -15,7 +15,9 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
+import HomeIcon from "@mui/icons-material/Home";
 import { keyframes } from "@mui/system";
+import FullPageLoader from "@/components/FullPageLoader";
 
 // Glow animation
 const pulseGlow = keyframes`
@@ -35,13 +37,23 @@ export default function HomePage() {
   const inactivityTimer = useRef(null);
   const [homeVideoKey, setHomeVideoKey] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
+  const [videoLoading, setVideoLoading] = useState(true);
 
   // agenda state
   const [agendaActive, setAgendaActive] = useState(null);
   const [agendaDoc, setAgendaDoc] = useState(null);
   const [allSpeakers, setAllSpeakers] = useState([]);
+  const [selectedSpeaker, setSelectedSpeaker] = useState(null);
 
   const marqueeRef = useRef(null);
+  const actionTimer = useRef(null);
+  const buttonSoundRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (actionTimer.current) clearTimeout(actionTimer.current);
+    };
+  }, []);
 
   // 1. fetch home + tree
   useEffect(() => {
@@ -154,21 +166,37 @@ export default function HomePage() {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
     inactivityTimer.current = setTimeout(() => {
       resetToHome();
-    }, 30000);
+    }, 240000); // After 4 minutes of inactivity
   };
 
-  const handleVideoEnded = () => {
-    if (currentNode?.action) {
-      setOpenAction(true);
-    }
-  };
-
-  if (loading) return <CircularProgress />;
+  if (loading) return <FullPageLoader />;
 
   const topNodes = Array.isArray(tree) ? tree : [];
   const currentChildren = currentNode?.children || [];
 
+  const playClickSound = () => {
+    if (buttonSoundRef.current) {
+      buttonSoundRef.current.currentTime = 0;
+      buttonSoundRef.current.play().catch(() => {});
+    }
+  };
+
   const renderActionContent = () => {
+    if (selectedSpeaker) {
+      if (selectedSpeaker.infoImageUrl) {
+        return (
+          <Box sx={{ display: "flex", justifyContent: "center" }}>
+            <img
+              src={selectedSpeaker.infoImageUrl}
+              alt={`${selectedSpeaker.name}-info`}
+              style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }}
+            />
+          </Box>
+        );
+      }
+      return <Typography>No info image for this speaker</Typography>;
+    }
+
     if (!currentNode?.action) return null;
     const { type, s3Url, externalUrl } = currentNode.action;
     const url = s3Url || externalUrl;
@@ -211,28 +239,84 @@ export default function HomePage() {
     return <Typography>No action available</Typography>;
   };
   return (
-    <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: "#fff",
+        color: "#333",
+      }}
+    >
+      {currentNode && (
+        <IconButton
+          onClick={() => {
+            playClickSound();
+            resetToHome();
+          }}
+          sx={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            zIndex: 999,
+            bgcolor: "rgba(255,255,255,0.8)",
+            "&:hover": { bgcolor: "rgba(255,255,255,1)" },
+          }}
+        >
+          <HomeIcon />
+        </IconButton>
+      )}
+
       {/* Top 80% */}
       <Box
         sx={{
           flex: 8,
           position: "relative",
-          bgcolor: "black",
+          bgcolor: "white",
           overflow: "hidden",
         }}
       >
         {currentVideo ? (
-          <video
-            key={homeVideoKey}
-            ref={videoRef}
-            src={currentVideo}
-            autoPlay
-            playsInline
-            loop={currentNode === null}
-            muted={currentNode === null ? isMuted : false} // home muted toggle, others always sound
-            onEnded={handleVideoEnded}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
+          <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
+            <video
+              key={homeVideoKey}
+              ref={videoRef}
+              src={currentVideo}
+              autoPlay
+              playsInline
+              loop={currentNode === null}
+              muted={currentNode === null ? isMuted : false}
+              onPlay={() => {
+                // clear old timers
+                if (actionTimer.current) clearTimeout(actionTimer.current);
+                if (currentNode?.action) {
+                  actionTimer.current = setTimeout(() => {
+                    setOpenAction(true);
+                  }, 5000); // 5s delay
+                }
+                setVideoLoading(false);
+              }}
+              onLoadedData={() => setVideoLoading(false)}
+              onWaiting={() => setVideoLoading(true)}
+              onPlaying={() => setVideoLoading(false)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+
+            {videoLoading && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 200,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CircularProgress size={60} thickness={4} color="secondary" />
+              </Box>
+            )}
+          </Box>
         ) : (
           <Typography color="white" sx={{ p: 4 }}>
             No video available
@@ -261,10 +345,12 @@ export default function HomePage() {
           </IconButton>
         )}
 
-        {topNodes.map((node, idx) => (
+        {(currentNode ? currentChildren : topNodes).map((node, idx) => (
           <Box
             key={node._id}
             onClick={() => {
+              playClickSound();
+              setVideoLoading(true);
               setCurrentVideo(node.video?.s3Url || home?.video?.s3Url);
               setCurrentNode(node);
               setOpenAction(false);
@@ -273,14 +359,20 @@ export default function HomePage() {
               position: "absolute",
               top: `${node.y}%`,
               left: `${node.x}%`,
-              width: "clamp(8rem, 25vw, 28rem)",
-              height: "clamp(8rem, 10vw, 28rem)",
+              width: currentNode
+                ? "clamp(6rem, 25vw, 20rem)" // child style
+                : "clamp(8rem, 25vw, 28rem)", // parent style
+              height: currentNode
+                ? "clamp(6rem, 10vw, 20rem)"
+                : "clamp(8rem, 10vw, 28rem)",
               borderRadius: "20px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexDirection: "column",
-              fontSize: "clamp(1rem, 3vw, 3rem)",
+              fontSize: currentNode
+                ? "clamp(0.8rem, 2.5vw, 2rem)"
+                : "clamp(1rem, 3vw, 3rem)",
               textTransform: "capitalize",
               textAlign: "center",
               padding: "0.5rem",
@@ -289,94 +381,27 @@ export default function HomePage() {
               transition: "all 0.4s ease",
               cursor: "pointer",
               textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
-              background:
-                "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)",
+              background: currentNode
+                ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child
+                : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)", // parent
               color: "#fff",
-              border: "3px solid #d9f2d9",
+              border: currentNode ? "2px solid #fff3e0" : "3px solid #d9f2d9",
               boxShadow: `
-  0 20px 30px rgba(0,0,0,0.6),
-  0 6px 12px rgba(0,0,0,0.4), 
-  0 4px 10px rgba(255,255,255,0.05) inset 
-`,
-
+        0 20px 30px rgba(0,0,0,0.6),
+        0 6px 12px rgba(0,0,0,0.4), 
+        0 4px 10px rgba(255,255,255,0.05) inset
+      `,
               "&:hover": {
-                background:
-                  "radial-gradient(circle at 30% 30%, #8ed44a, #007a44)",
+                background: currentNode
+                  ? "radial-gradient(circle at 30% 30%, #FFEB3B, #FB8C00)"
+                  : "radial-gradient(circle at 30% 30%, #8ed44a, #007a44)",
                 transform: "scale(1.05)",
-              },
-
-              "&.clicked": {
-                animation: "clickPulse 0.3s ease",
-              },
-              "@keyframes floatY": {
-                "0%, 100%": { transform: "translateY(0)" },
-                "50%": { transform: "translateY(-20px)" },
-              },
-              "@keyframes clickPulse": {
-                "0%": { transform: "scale(1)" },
-                "50%": { transform: "scale(0.9)" },
-                "100%": { transform: "scale(1)" },
               },
             }}
           >
             {node.title}
           </Box>
         ))}
-
-        {currentChildren.length > 0 &&
-          currentChildren.map((child, idx) => (
-            <Box
-              key={child._id}
-              onClick={() => {
-                setCurrentVideo(child.video?.s3Url || currentVideo);
-                setCurrentNode(child);
-                setOpenAction(false);
-              }}
-              sx={{
-                position: "absolute",
-                top: `${child.y}%`,
-                left: `${child.x}%`,
-                width: "clamp(6rem, 25vw, 20rem)",
-                height: "clamp(6rem, 10vw, 20rem)",
-                borderRadius: "20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                fontSize: "clamp(0.8rem, 2.5vw, 2rem)",
-                textTransform: "capitalize",
-                textAlign: "center",
-                padding: "0.4rem",
-                animation: `floatY 6s ease-in-out infinite`,
-                animationDelay: `${idx * 0.2}s`,
-                transition: "all 0.4s ease",
-                cursor: "pointer",
-                textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
-                background:
-                  "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)",
-                color: "#fff",
-                border: "2px solid #fff3e0",
-                boxShadow: `
-  0 20px 30px rgba(0,0,0,0.6),
-  0 6px 12px rgba(0,0,0,0.4), 
-  0 4px 10px rgba(255,255,255,0.05) inset 
-`,
-                "&:hover": {
-                  background:
-                    "radial-gradient(circle at 30% 30%, #FFEB3B, #FB8C00)",
-                  transform: "scale(1.05)",
-                },
-
-                "&.clicked": {
-                  animation: "clickPulse 0.3s ease",
-                  background:
-                    "radial-gradient(circle at 30% 30%, #b00000, #700000)",
-                },
-              }}
-            >
-              {child.title}
-            </Box>
-          ))}
       </Box>
 
       {/* Bottom 20% Speakers */}
@@ -393,6 +418,11 @@ export default function HomePage() {
         {/* Active Speaker sticky */}
         {activeSpeaker && (
           <Stack
+            onClick={() => {
+              playClickSound();
+              setSelectedSpeaker(activeSpeaker);
+              setOpenAction(true);
+            }}
             alignItems="center"
             justifyContent="center"
             sx={{
@@ -501,6 +531,11 @@ export default function HomePage() {
 
               return (
                 <Stack
+                  onClick={() => {
+                    playClickSound();
+                    setSelectedSpeaker(spk);
+                    setOpenAction(true);
+                  }}
                   key={spk._id || `${spk.name}-${spk.startTime}`}
                   direction="column"
                   alignItems="center"
@@ -563,12 +598,14 @@ export default function HomePage() {
       {/* Action Popup */}
       <Dialog
         open={openAction}
-        onClose={() => setOpenAction(false)}
+        onClose={() => {
+          setOpenAction(false);
+          setSelectedSpeaker(null);
+        }}
         fullWidth
         maxWidth="lg"
       >
         <DialogTitle>
-          Action
           <IconButton
             aria-label="close"
             onClick={() => setOpenAction(false)}
@@ -577,10 +614,12 @@ export default function HomePage() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ height: "80vh" }}>
+        <DialogContent sx={{ m: 2, minHeight: 600 }}>
           {renderActionContent()}
         </DialogContent>
       </Dialog>
+
+      <audio ref={buttonSoundRef} src="/buttonSound.wav" preload="auto" />
     </Box>
   );
 }

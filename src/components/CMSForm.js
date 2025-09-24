@@ -107,8 +107,9 @@ export default function CMSForm({
       return;
     }
 
-    if (!initialData && !video) {
-      showSnackbar("Video is required for new nodes", "error");
+    // Require video only if this node has a parent
+    if (!initialData && !video && selectedParent) {
+      showSnackbar("Video is required for child nodes", "error");
       return;
     }
 
@@ -265,7 +266,11 @@ export default function CMSForm({
           variant="outlined"
           startIcon={<UploadFileIcon />}
         >
-          {initialData ? "Replace Video" : "Upload Video (Required)"}
+          {initialData
+            ? "Replace Video"
+            : selectedParent
+            ? "Upload Video (Required for child nodes)"
+            : "Upload Video (Optional for parent nodes)"}
           <input
             type="file"
             hidden
@@ -273,6 +278,7 @@ export default function CMSForm({
             onChange={(e) => setVideo(e.target.files[0])}
           />
         </Button>
+
         {initialData?.video?.s3Url && !video && (
           <Typography variant="body2" color="text.secondary">
             Current: {initialData.video.s3Url}
