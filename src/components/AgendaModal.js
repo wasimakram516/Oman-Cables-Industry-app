@@ -11,6 +11,8 @@ import {
   MenuItem,
   Stack,
   Box,
+  LinearProgress,
+  Typography,
 } from "@mui/material";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs from "dayjs";
@@ -24,12 +26,18 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
     company: "",
     role: "speaker",
     photoUrl: "",
-    infoImageUrl: "", 
+    infoImageUrl: "",
     isActive: false,
   };
 
   const [formData, setFormData] = useState(emptySpeaker);
   const [saving, setSaving] = useState(false);
+
+  // upload progress state
+  const [uploadProgress, setUploadProgress] = useState({
+    photoUrl: 0,
+    infoImageUrl: 0,
+  });
 
   useEffect(() => {
     if (editIndex !== null && agenda?.items?.[editIndex]) {
@@ -43,32 +51,57 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
     setFormData({ ...formData, [field]: value });
   };
 
+  // get presigned URL
+  const getPresignedUrl = async (file, folder) => {
+    const res = await fetch("/api/nodes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        presign: true,
+        fileName: file.name,
+        fileType: file.type,
+        folder,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Failed to get presigned URL");
+    return await res.json();
+  };
+
+  // upload with progress
+  const uploadToS3 = (file, uploadURL, field) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", uploadURL, true);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress((prev) => ({ ...prev, [field]: percent }));
+        }
+      };
+
+      xhr.onload = () =>
+        xhr.status === 200 ? resolve() : reject(new Error("Upload failed"));
+      xhr.onerror = () => reject(new Error("Upload error"));
+
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.send(file);
+    });
+  };
+
   const handleFileUpload = async (file, field) => {
     try {
-      // 1. Ask API for presigned URL
-      const res = await fetch("/api/nodes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          presign: true,
-          fileName: file.name,
-          fileType: file.type,
-          folder: "images",
-        }),
-      });
-      const { uploadURL, fileUrl } = await res.json();
+      setUploadProgress((prev) => ({ ...prev, [field]: 0 }));
 
-      // 2. Upload file directly to S3
-      await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
+      const { uploadURL, fileUrl } = await getPresignedUrl(file, "images");
+      await uploadToS3(file, uploadURL, field);
 
-      // 3. Save CloudFront URL into agenda item
       handleChange(field, fileUrl);
     } catch (err) {
       console.error("❌ Upload failed:", err);
+    } finally {
+      setUploadProgress((prev) => ({ ...prev, [field]: 0 }));
     }
   };
 
@@ -82,8 +115,7 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
         updatedItems.push(formData);
       }
       const payload = { items: updatedItems };
-      console.log(payload);
-      
+
       const method = agenda?._id ? "PUT" : "POST";
       const url = agenda?._id ? `/api/agenda/${agenda._id}` : `/api/agenda`;
 
@@ -112,7 +144,9 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
           <Stack direction="row" spacing={2}>
             <TimePicker
               label="Start Time"
-              value={formData.startTime ? dayjs(formData.startTime, "HH:mm") : null}
+              value={
+                formData.startTime ? dayjs(formData.startTime, "HH:mm") : null
+              }
               onChange={(val) =>
                 handleChange("startTime", val ? val.format("HH:mm") : "")
               }
@@ -164,6 +198,17 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
               />
             </Button>
           </Stack>
+          {uploadProgress.photoUrl > 0 && (
+            <Box sx={{ width: "100%", mt: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={uploadProgress.photoUrl}
+              />
+              <Typography variant="body2">
+                {uploadProgress.photoUrl}%
+              </Typography>
+            </Box>
+          )}
 
           {/* Speaker info image upload */}
           <Stack direction="row" spacing={2} alignItems="center">
@@ -189,7 +234,9 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
               />
             )}
             <Button size="small" variant="outlined" component="label">
-              {formData.infoImageUrl ? "Change Info Image" : "Upload Info Image"}
+              {formData.infoImageUrl
+                ? "Change Info Image"
+                : "Upload Info Image"}
               <input
                 hidden
                 accept="image/*"
@@ -201,7 +248,19 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
               />
             </Button>
           </Stack>
+          {uploadProgress.infoImageUrl > 0 && (
+            <Box sx={{ width: "100%", mt: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={uploadProgress.infoImageUrl}
+              />
+              <Typography variant="body2">
+                {uploadProgress.infoImageUrl}%
+              </Typography>
+            </Box>
+          )}
 
+          {/* Fields */}
           <TextField
             label="Name"
             value={formData.name || ""}
