@@ -128,7 +128,7 @@ export default function CMSForm({
 
       let payload = {
         title,
-        parent: selectedParent,
+        parent: selectedParent || null, 
         order: 0,
         x: Number(x),
         y: Number(y),

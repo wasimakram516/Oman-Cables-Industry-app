@@ -35,11 +35,12 @@ export default function HomeVideoModal({ open, onClose, onUploaded }) {
         }),
       });
 
-      if (!presignRes.ok) {
-        throw new Error("Failed to get presigned URL");
+      const presignData = await presignRes.json();
+      if (!presignRes.ok || !presignData.ok) {
+        throw new Error(presignData.error || "Failed to get presigned URL");
       }
 
-      const { uploadURL, key, fileUrl } = await presignRes.json();
+      const { uploadURL, key, fileUrl } = presignData;
 
       // Step 2: upload file to S3 with progress tracking
       await new Promise((resolve, reject) => {
@@ -57,13 +58,18 @@ export default function HomeVideoModal({ open, onClose, onUploaded }) {
           if (xhr.status === 200) {
             try {
               // Step 3: notify backend to save DB reference
-              await fetch("/api/home", {
+              const notifyRes = await fetch("/api/home", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   video: { s3Key: key, s3Url: fileUrl },
                 }),
               });
+
+              const notifyData = await notifyRes.json();
+              if (!notifyRes.ok || !notifyData.ok) {
+                throw new Error(notifyData.error || "Failed to save video");
+              }
 
               setLoading(false);
               setFile(null);

@@ -1,23 +1,42 @@
 import mongoose from "mongoose";
 
 const actionSchema = new mongoose.Schema({
-  type: { type: String, enum: ["pdf", "image", "iframe", "link"], required: true },
+  type: {
+    type: String,
+    enum: ["pdf", "image", "iframe", "link"],
+    required: true,
+  },
   title: { type: String },
   s3Key: { type: String },
   s3Url: { type: String },
-  externalUrl: { type: String }
+  externalUrl: { type: String },
 });
 
 const nodeSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     order: { type: Number, default: 0 },
-    parent: { type: mongoose.Schema.Types.ObjectId, ref: "Node", default: null },
+    parent: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Node",
+      default: null,
+      set: (v) => (v === "" ? null : v),
+    },
 
     video: {
-      s3Key: { type: String, required: true },
-      s3Url: { type: String, required: true },
-      duration: { type: Number }
+      s3Key: {
+        type: String,
+        required: function () {
+          return !!this.parent; // only required if this node has a parent
+        },
+      },
+      s3Url: {
+        type: String,
+        required: function () {
+          return !!this.parent;
+        },
+      },
+      duration: { type: Number },
     },
 
     children: [{ type: mongoose.Schema.Types.ObjectId, ref: "Node" }],
@@ -26,7 +45,7 @@ const nodeSchema = new mongoose.Schema(
     x: { type: Number, default: 50 }, // X position on screen
     y: { type: Number, default: 50 }, // Y position on screen
 
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

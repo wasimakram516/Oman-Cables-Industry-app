@@ -52,32 +52,54 @@ export default function CMSPage() {
   }, []);
 
   const fetchTree = async () => {
-    const res = await fetch("/api/nodes/tree");
-    return res.json();
+    try {
+      const res = await fetch("/api/nodes/tree");
+      if (!res.ok) throw new Error(res.statusText);
+      return await res.json();
+    } catch (err) {
+      console.error("❌ fetchTree error:", err);
+      return [];
+    }
   };
 
   const fetchHomeVideo = async () => {
-    const res = await fetch("/api/home");
-    return res.json();
+    try {
+      const res = await fetch("/api/home");
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      return data.ok ? data.video : null;
+    } catch (err) {
+      console.error("❌ fetchHomeVideo error:", err);
+      return null;
+    }
   };
 
   const fetchAgenda = async () => {
-    const res = await fetch("/api/agenda");
-    const data = await res.json();
-    return data[0] || null;
+    try {
+      const res = await fetch("/api/agenda");
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      return Array.isArray(data) ? data[0] || null : null;
+    } catch (err) {
+      console.error("❌ fetchAgenda error:", err);
+      return null;
+    }
   };
 
   const refreshAll = async () => {
     setLoading(true);
-    const [treeData, homeData, agendaData] = await Promise.all([
-      fetchTree(),
-      fetchHomeVideo(),
-      fetchAgenda(),
-    ]);
-    setTree(treeData);
-    setHomeVideo(homeData);
-    setAgenda(agendaData);
-    setLoading(false);
+    try {
+      const [treeData, homeData, agendaData] = await Promise.all([
+        fetchTree(),
+        fetchHomeVideo(),
+        fetchAgenda(),
+      ]);
+      setTree(treeData || []);
+      setHomeVideo(homeData || null);
+      setAgenda(agendaData || null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteClick = (item, idx) => {
@@ -128,7 +150,7 @@ export default function CMSPage() {
         CMS – Manage Nodes & Agenda
       </Typography>
 
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
         <Button
           variant="contained"
           color="secondary"

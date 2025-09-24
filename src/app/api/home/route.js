@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Home from "@/models/Home";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { deleteFromS3, getFolderByMime } from "@/utils/s3";
+import { deleteFromS3 } from "@/utils/s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3 = new S3Client({
@@ -15,9 +15,20 @@ const s3 = new S3Client({
 
 // 📌 GET home video
 export async function GET() {
-  await dbConnect();
-  const home = await Home.findOne();
-  return NextResponse.json(home || {});
+  try {
+    await dbConnect();
+    const home = await Home.findOne();
+    return NextResponse.json({
+      ok: true,
+      video: home?.video || null,
+    });
+  } catch (err) {
+    console.error("❌ Home GET error:", err);
+    return NextResponse.json(
+      { ok: false, error: err.message, video: null },
+      { status: 500 }
+    );
+  }
 }
 
 // 📌 UPLOAD/REPLACE home video via presigned
@@ -40,6 +51,7 @@ export async function POST(req) {
       const uploadURL = await getSignedUrl(s3, command, { expiresIn: 60 });
 
       return NextResponse.json({
+        ok: true,
         uploadURL,
         key,
         fileUrl: `${process.env.CLOUDFRONT_URL}/${key}`,
@@ -49,7 +61,10 @@ export async function POST(req) {
     // Case B: client notifies after upload
     const { video } = body;
     if (!video) {
-      return NextResponse.json({ error: "No video data provided" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "No video data provided" },
+        { status: 400 }
+      );
     }
 
     let home = await Home.findOne();
@@ -64,10 +79,13 @@ export async function POST(req) {
       await home.save();
     }
 
-    return NextResponse.json(home);
+    return NextResponse.json({ ok: true, video: home.video });
   } catch (err) {
-    console.error("❌ Home video error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("❌ Home video POST error:", err);
+    return NextResponse.json(
+      { ok: false, error: err.message },
+      { status: 500 }
+    );
   }
 }
 
@@ -78,18 +96,29 @@ export async function DELETE() {
     const home = await Home.findOne();
 
     if (!home) {
-      return NextResponse.json({ message: "No home video exists" });
+      return NextResponse.json({
+        ok: true,
+        message: "No home video exists",
+        video: null,
+      });
     }
 
     if (home.video?.s3Key) {
       await deleteFromS3(home.video.s3Key);
     }
 
-    await Home.deleteMany({}); // wipe collection
+    await Home.deleteMany({}); 
 
-    return NextResponse.json({ message: "Home video deleted" });
+    return NextResponse.json({
+      ok: true,
+      message: "Home video deleted",
+      video: null,
+    });
   } catch (err) {
     console.error("❌ Home video delete error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err.message, video: null },
+      { status: 500 }
+    );
   }
 }

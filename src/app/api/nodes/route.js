@@ -54,15 +54,19 @@ export async function POST(req) {
     // Case B: create node with uploaded media info
     const { title, parent, order, video, action, x, y } = body;
 
-    if (!video?.s3Url) {
-      return NextResponse.json({ error: "Video is required" }, { status: 400 });
+    // Only enforce video for child nodes
+    if (parent && !video?.s3Url) {
+      return NextResponse.json(
+        { error: "Video is required for child nodes" },
+        { status: 400 }
+      );
     }
 
     const node = new Node({
       title,
       order: order || 0,
       parent: parent || null,
-      video,
+      video: video || null,
       action: action || null,
       x: x ?? 0,
       y: y ?? 0,
