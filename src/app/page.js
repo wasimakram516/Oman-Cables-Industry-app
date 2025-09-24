@@ -287,13 +287,19 @@ export default function HomePage() {
               loop={currentNode === null}
               muted={currentNode === null ? isMuted : false}
               onPlay={() => {
-                // clear old timers
                 if (actionTimer.current) clearTimeout(actionTimer.current);
+
                 if (currentNode?.action) {
+                  setSelectedSpeaker(null);
+
+                  const nodeForAction = currentNode;
+
                   actionTimer.current = setTimeout(() => {
                     setOpenAction(true);
-                  }, 5000); // 5s delay
+                    setCurrentNode(nodeForAction);
+                  }, 5000);
                 }
+
                 setVideoLoading(false);
               }}
               onLoadedData={() => setVideoLoading(false)}
