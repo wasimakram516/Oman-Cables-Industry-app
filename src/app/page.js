@@ -201,18 +201,17 @@ export default function HomePage() {
     const { type, s3Url, externalUrl } = currentNode.action;
     const url = s3Url || externalUrl;
 
-    if (type === "pdf") {
-      return (
-        <iframe
-          src={url}
-          style={{ width: "100%", height: "100%", border: "none" }}
-        />
-      );
-    }
-
     if (type === "image") {
       return (
-        <img src={url} alt="Action" style={{ width: "100%", height: "auto" }} />
+        <img
+          src={url}
+          alt="Action"
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain",
+          }}
+        />
       );
     }
 
@@ -222,7 +221,25 @@ export default function HomePage() {
           src={url}
           controls
           autoPlay
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            background: "black",
+          }}
+        />
+      );
+    }
+
+    if (type === "pdf") {
+      return (
+        <iframe
+          src={url}
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+          }}
         />
       );
     }
@@ -231,7 +248,11 @@ export default function HomePage() {
       return (
         <iframe
           src={url}
-          style={{ width: "100%", height: "100%", border: "none" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+          }}
         />
       );
     }
@@ -608,20 +629,60 @@ export default function HomePage() {
           setOpenAction(false);
           setSelectedSpeaker(null);
         }}
-        fullWidth
-        maxWidth="lg"
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            width: "95vw",
+            height: "85vh",
+            mt: "5%", // margin top
+            mx: "auto", // center horizontally
+            borderRadius: 2,
+            position: "relative",
+            overflow: "hidden",
+          },
+        }}
       >
-        <DialogTitle>
-          <IconButton
-            aria-label="close"
-            onClick={() => setOpenAction(false)}
-            sx={{ position: "absolute", right: 8, top: 8 }}
+        {/* Close button */}
+        <IconButton
+          aria-label="close"
+          onClick={() => {
+            setOpenAction(false);
+            setSelectedSpeaker(null);
+          }}
+          sx={{
+            position: "absolute",
+            right: 16,
+            top: 16,
+            color: "error.main",
+            zIndex: 999,
+            bgcolor: "rgba(255,255,255,0.8)",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.7)", color: "white" },
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+
+        <DialogContent
+          sx={{
+            p: 0,
+            height: "100%",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Box
+            sx={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ m: 2, minHeight: 600 }}>
-          {renderActionContent()}
+            {renderActionContent()}
+          </Box>
         </DialogContent>
       </Dialog>
 
