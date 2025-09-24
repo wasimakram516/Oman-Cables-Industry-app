@@ -196,18 +196,19 @@ export default function CMSPage() {
       ) : (
         <>
           {/* Show home video */}
-          {homeVideo?.video?.s3Url && (
+          {homeVideo?.s3Url && (
             <Box sx={{ mb: 3 }}>
               <Typography variant="subtitle1" gutterBottom>
                 Current Home Video:
               </Typography>
               <video
-                src={homeVideo.video.s3Url}
+                src={homeVideo.s3Url}
                 controls
                 style={{ width: "100%", maxWidth: 200, borderRadius: 8 }}
               />
             </Box>
           )}
+
           <NodeAccordionTree
             nodes={tree}
             onEdit={(node) => {
