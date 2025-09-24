@@ -37,7 +37,7 @@ export default function HomePage() {
   const inactivityTimer = useRef(null);
   const [homeVideoKey, setHomeVideoKey] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
-  const [videoLoading, setVideoLoading] = useState(true);
+  const [videoLoading, setVideoLoading] = useState(false);
 
   // agenda state
   const [agendaActive, setAgendaActive] = useState(null);
@@ -333,7 +333,7 @@ export default function HomePage() {
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
 
-            {videoLoading && (
+            {currentVideo && videoLoading && (
               <Box
                 sx={{
                   position: "absolute",
@@ -381,8 +381,15 @@ export default function HomePage() {
             key={node._id}
             onClick={() => {
               playClickSound();
-              setVideoLoading(true);
-              setCurrentVideo(node.video?.s3Url || home?.video?.s3Url);
+
+              if (node.video?.s3Url) {
+                setCurrentVideo(node.video.s3Url);
+                setVideoLoading(true);
+              } else {
+                setCurrentVideo(currentVideo || home?.video?.s3Url || null);
+                setVideoLoading(false);
+              }
+
               setCurrentNode(node);
               setOpenAction(false);
             }}
