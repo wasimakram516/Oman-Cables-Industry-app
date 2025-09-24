@@ -244,16 +244,20 @@ export default function HomePage() {
       );
     }
 
-    if (type === "iframe" || type === "link") {
+    if (type === "iframe") {
       return (
-        <iframe
-          src={url}
-          style={{
-            width: "100%",
-            height: "100%",
-            border: "none",
-          }}
-        />
+        <Box sx={{ width: "100%", height: "100%" }}>
+          <iframe
+            src={url}
+            allow="fullscreen; xr-spatial-tracking"
+            allowFullScreen
+            style={{
+              width: "100%",
+              height: "100%",
+              border: "none",
+            }}
+          />
+        </Box>
       );
     }
 
