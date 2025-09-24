@@ -106,6 +106,12 @@ export default function CMSPage() {
     }
   };
 
+  const refreshAll = async () => {
+    setLoading(true);
+    await Promise.all([fetchTree(), fetchHomeVideo(), fetchAgenda()]);
+    setLoading(false);
+  };
+
   return (
     <Box
       sx={{
@@ -122,6 +128,14 @@ export default function CMSPage() {
       <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
         <Button
           variant="contained"
+          color="secondary"
+          startIcon={<VideoCameraBackIcon />}
+          onClick={() => setOpenHomeModal(true)}
+        >
+          Manage Home Video
+        </Button>
+        <Button
+          variant="contained"
           startIcon={<AddIcon />}
           onClick={() => {
             setEditNode(null);
@@ -131,27 +145,20 @@ export default function CMSPage() {
         >
           Create Node
         </Button>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={fetchTree}
-        >
-          Refresh Nodes
-        </Button>
-        <Button
-          variant="contained"
-          color="secondary"
-          startIcon={<VideoCameraBackIcon />}
-          onClick={() => setOpenHomeModal(true)}
-        >
-          Manage Home Video
-        </Button>
+
         <Button
           variant="contained"
           color="success"
           onClick={() => setOpenAgendaModal(true)}
         >
           Manage Agenda
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={refreshAll}
+        >
+          Refresh All
         </Button>
       </Stack>
 

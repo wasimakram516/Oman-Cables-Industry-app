@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OCI</string>
+    <string name="title_activity_main">OCI</string>
+    <string name="package_name">om.whitewall.oci</string>
+    <string name="custom_url_scheme">om.whitewall.oci</string>
+</resources>

@@ -1,0 +1,10 @@
+{
+  "appId": "om.whitewall.oci",
+  "appName": "OCI",
+  "webDir": "out",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://oci-whitewall.vercel.app",
+    "cleartext": true
+  }
+}
