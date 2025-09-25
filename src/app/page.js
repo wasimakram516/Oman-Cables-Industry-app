@@ -29,6 +29,17 @@ const pulseGlow = keyframes`
   100% { box-shadow: 0 0 0 0 rgba(0,200,83,0); }
 `;
 
+// Slide animations
+const slideInNext = keyframes`
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+`;
+
+const slideInPrev = keyframes`
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: translateX(0); }
+`;
+
 export default function HomePage() {
   const [home, setHome] = useState(null);
   const [tree, setTree] = useState([]);
@@ -42,6 +53,8 @@ export default function HomePage() {
   const [isMuted, setIsMuted] = useState(true);
   const [videoLoading, setVideoLoading] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [direction, setDirection] = useState("next");
+  const [prevIndex, setPrevIndex] = useState(null);
 
   // agenda state
   const [agendaActive, setAgendaActive] = useState(null);
@@ -206,22 +219,43 @@ export default function HomePage() {
     const url = s3Url || externalUrl;
 
     if (type === "slideshow" && images.length > 0) {
-      const currentImg = images[slideIndex % images.length];
       return (
-        <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
-          <img
-            src={currentImg.s3Url}
-            alt={`slide-${slideIndex}`}
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
-          />
+        <Box
+          sx={{
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            overflow: "hidden",
+          }}
+        >
+          <Box
+            key={slideIndex}
+            sx={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              animation: `${
+                direction === "next" ? slideInNext : slideInPrev
+              } 0.6s ease`,
+            }}
+          >
+            <img
+              src={images[slideIndex].s3Url}
+              alt={`slide-${slideIndex}`}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
+          </Box>
 
           {/* Prev button */}
           <IconButton
-            onClick={() =>
+            onClick={() => {
+              setDirection("prev");
               setSlideIndex(
                 (prev) => (prev - 1 + images.length) % images.length
-              )
-            }
+              );
+            }}
             sx={{
               position: "absolute",
               left: 16,
@@ -240,7 +274,10 @@ export default function HomePage() {
 
           {/* Next button */}
           <IconButton
-            onClick={() => setSlideIndex((prev) => (prev + 1) % images.length)}
+            onClick={() => {
+              setDirection("next");
+              setSlideIndex((prev) => (prev + 1) % images.length);
+            }}
             sx={{
               position: "absolute",
               right: 16,
@@ -271,12 +308,15 @@ export default function HomePage() {
             {images.map((_, i) => (
               <Box
                 key={i}
-                onClick={() => setSlideIndex(i)}
+                onClick={() => {
+                  setDirection(i > slideIndex ? "next" : "prev");
+                  setSlideIndex(i);
+                }}
                 sx={{
                   width: 12,
                   height: 12,
                   borderRadius: "50%",
-                  bgcolor: i === slideIndex ? "#1976d2" : "#bbb", // blue for active, gray for inactive
+                  bgcolor: i === slideIndex ? "#1976d2" : "#bbb",
                   border: "1px solid white",
                   cursor: "pointer",
                 }}
