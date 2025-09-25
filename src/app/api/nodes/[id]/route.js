@@ -22,6 +22,8 @@ export async function PUT(req, context) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json();
+
+    // Build update object dynamically
     const updates = {};
 
     if (body.title !== undefined) updates.title = body.title;
@@ -29,17 +31,36 @@ export async function PUT(req, context) {
     if (body.x !== undefined) updates.x = body.x;
     if (body.y !== undefined) updates.y = body.y;
 
+    // 🎥 Video: replace only if new video provided
     if (body.video) {
-      await deleteFromS3(node.video?.s3Key);
+      if (node.video?.s3Key && node.video?.s3Key !== body.video.s3Key) {
+        await deleteFromS3(node.video.s3Key);
+      }
       updates.video = body.video;
     }
 
+    // 🎬 Action
     if (body.action) {
-      // For non-slideshow, replace and clean old single file
-      if (node.action?.type !== "slideshow" && body.action.type !== "slideshow") {
-        await deleteFromS3(node.action?.s3Key);
+      updates.action = { ...node.action?.toObject(), ...body.action };
+
+      // Handle popup separately so it merges
+      if (body.action.popup) {
+        updates.action.popup = {
+          ...node.action?.popup?.toObject(),
+          ...body.action.popup,
+        };
       }
-      updates.action = body.action;
+
+      // If replacing non-slideshow media (pdf/image), clean old file
+      if (
+        body.action.type &&
+        body.action.type !== "slideshow" &&
+        node.action?.s3Key &&
+        node.action.s3Key !== body.action.s3Key
+      ) {
+        await deleteFromS3(node.action.s3Key);
+      }
+
     }
 
     const updatedNode = await Node.findByIdAndUpdate(id, updates, {

@@ -128,15 +128,19 @@ export default function CMSForm({
       setSubmitting(true);
       setProgress(0);
 
-      let payload = {
-        title,
-        parent: selectedParent || null,
-        order: 0,
-        x: Number(x),
-        y: Number(y),
-      };
+      let payload = {};
 
-      // Video
+      // Basic fields
+      if (title !== initialData?.title) payload.title = title;
+      if (selectedParent !== (initialData?.parent || parent || ""))
+        payload.parent = selectedParent || null;
+      if (x !== initialData?.x) payload.x = Number(x);
+      if (y !== initialData?.y) payload.y = Number(y);
+      if (width !== initialData?.action?.width) payload.width = Number(width);
+      if (height !== initialData?.action?.height)
+        payload.height = Number(height);
+
+      // 🎥 Video
       if (video) {
         const { uploadURL, key, fileUrl } = await getPresignedUrl(
           video,
@@ -146,8 +150,8 @@ export default function CMSForm({
         payload.video = { s3Key: key, s3Url: fileUrl };
       }
 
-      // Action (main)
-      let actionPayload = null;
+      // 🎬 Action (only if we touched it)
+      let actionPayload = {};
       if (actionType) {
         if (actionType === "slideshow") {
           let uploadedImages = [];
@@ -159,12 +163,8 @@ export default function CMSForm({
             await uploadToS3(file, uploadURL);
             uploadedImages.push({ s3Key: key, s3Url: fileUrl });
           }
-          actionPayload = {
-            type: "slideshow",
-            images: [...existingImages, ...uploadedImages],
-            width: Number(width),
-            height: Number(height),
-          };
+          actionPayload.type = "slideshow";
+          actionPayload.images = [...existingImages, ...uploadedImages];
         } else if (actionFile && actionType !== "iframe") {
           const folder = actionType === "pdf" ? "pdfs" : "images";
           const { uploadURL, key, fileUrl } = await getPresignedUrl(
@@ -172,45 +172,44 @@ export default function CMSForm({
             folder
           );
           await uploadToS3(actionFile, uploadURL);
-          actionPayload = {
-            type: actionType,
-            s3Key: key,
-            s3Url: fileUrl,
-            width: Number(width),
-            height: Number(height),
-          };
+          actionPayload.type = actionType;
+          actionPayload.s3Key = key;
+          actionPayload.s3Url = fileUrl;
         } else if (actionType === "iframe" && actionUrl) {
-          actionPayload = {
-            type: "iframe",
-            externalUrl: actionUrl,
-            width: Number(width),
-            height: Number(height),
-          };
+          actionPayload.type = "iframe";
+          actionPayload.externalUrl = actionUrl;
         }
+
+        // Add size only if changed
+        if (Number(width) !== initialData?.action?.width)
+          actionPayload.width = Number(width);
+        if (Number(height) !== initialData?.action?.height)
+          actionPayload.height = Number(height);
       }
 
-      // Popup (optional — only file upload, no external URL)
-      let popupPayload = null;
+      // 📌 Popup (optional)
+      let popupPayload = {};
       if (popupFile) {
         const { uploadURL, key, fileUrl } = await getPresignedUrl(
           popupFile,
           "popups"
         );
         await uploadToS3(popupFile, uploadURL);
-        popupPayload = {
-          s3Key: key,
-          s3Url: fileUrl,
-          x: Number(popupX),
-          y: Number(popupY),
-        };
+        popupPayload.s3Key = key;
+        popupPayload.s3Url = fileUrl;
+      }
+      if (Number(popupX) !== initialData?.action?.popup?.x)
+        popupPayload.x = Number(popupX);
+      if (Number(popupY) !== initialData?.action?.popup?.y)
+        popupPayload.y = Number(popupY);
+
+      // Merge into action if any popup field was touched
+      if (Object.keys(popupPayload).length > 0) {
+        actionPayload.popup = popupPayload;
       }
 
-      // Merge both
-      if (actionPayload || popupPayload) {
-        payload.action = { ...actionPayload };
-        if (popupPayload) {
-          payload.action.popup = popupPayload;
-        }
+      if (Object.keys(actionPayload).length > 0) {
+        payload.action = actionPayload;
       }
 
       // Save node
