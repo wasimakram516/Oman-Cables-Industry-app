@@ -498,6 +498,27 @@ export default function HomePage() {
           </Typography>
         )}
 
+        {/* OCI logo*/}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 500,
+          }}
+        >
+          <img
+            src="/OCI.png"
+            alt="OCI Logo"
+            style={{
+              height: "150px",
+              objectFit: "contain",
+              filter: "drop-shadow(0px 4px 8px rgba(0,0,0,0.6))",
+            }}
+          />
+        </Box>
+
         {/* Show mute/unmute only on home */}
         {currentNode === null && (
           <IconButton
