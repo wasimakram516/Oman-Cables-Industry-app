@@ -862,6 +862,24 @@ export default function HomePage() {
             }}
           >
             {renderActionContent()}
+
+            {/* Popup overlay */}
+            {currentNode?.action?.popup?.s3Url && (
+              <Box
+                component="img"
+                src={currentNode.action.popup.s3Url}
+                alt="Popup"
+                sx={{
+                  position: "absolute",
+                  top: `${currentNode.action.popup.y || 0}%`,
+                  left: `${currentNode.action.popup.x || 0}%`,
+                  transform: "translate(-50%, -50%)",
+                  maxWidth: "300px",
+                  zIndex: 1000,
+                  borderRadius: "8px",
+                }}
+              />
+            )}
           </Box>
         </DialogContent>
       </Dialog>

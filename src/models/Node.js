@@ -21,9 +21,17 @@ const actionSchema = new mongoose.Schema({
     },
   ],
 
+  // Optional popup overlay
+  popup: {
+    s3Key: { type: String },
+    s3Url: { type: String },
+    x: { type: Number, default: 50 }, // percentage position X
+    y: { type: Number, default: 50 }, // percentage position Y
+  },
+
   // Container sizing for frontend
-  width: { type: Number, default: 85 },  // (%, vh, px)
-  height: { type: Number, default: 95 }, // (%, vh, px)
+  width: { type: Number, default: 85 },  // (% of viewport width)
+  height: { type: Number, default: 95 }, // (% of viewport height)
 });
 
 const nodeSchema = new mongoose.Schema(

@@ -41,17 +41,27 @@ export default function CMSForm({
 
   const [actionType, setActionType] = useState(initialData?.action?.type || "");
   const [actionFile, setActionFile] = useState(null);
-  const [actionUrl, setActionUrl] = useState(initialData?.action?.externalUrl || "");
+  const [actionUrl, setActionUrl] = useState(
+    initialData?.action?.externalUrl || ""
+  );
 
   const [slideshowFiles, setSlideshowFiles] = useState([]);
-  const [existingImages, setExistingImages] = useState(initialData?.action?.images || []);
+  const [existingImages, setExistingImages] = useState(
+    initialData?.action?.images || []
+  );
 
   const [width, setWidth] = useState(initialData?.action?.width ?? 85);
   const [height, setHeight] = useState(initialData?.action?.height ?? 95);
 
-  const [selectedParent, setSelectedParent] = useState(initialData?.parent || parent || "");
+  const [selectedParent, setSelectedParent] = useState(
+    initialData?.parent || parent || ""
+  );
   const [x, setX] = useState(initialData?.x ?? 50);
   const [y, setY] = useState(initialData?.y ?? 50);
+
+  const [popupFile, setPopupFile] = useState(null);
+  const [popupX, setPopupX] = useState(initialData?.action?.popup?.x ?? 50);
+  const [popupY, setPopupY] = useState(initialData?.action?.popup?.y ?? 50);
 
   const [progress, setProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -91,7 +101,8 @@ export default function CMSForm({
           setProgress(percent);
         }
       };
-      xhr.onload = () => (xhr.status === 200 ? resolve() : reject(new Error("Upload failed")));
+      xhr.onload = () =>
+        xhr.status === 200 ? resolve() : reject(new Error("Upload failed"));
       xhr.onerror = () => reject(new Error("Upload error"));
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
@@ -127,7 +138,10 @@ export default function CMSForm({
 
       // Video
       if (video) {
-        const { uploadURL, key, fileUrl } = await getPresignedUrl(video, "videos");
+        const { uploadURL, key, fileUrl } = await getPresignedUrl(
+          video,
+          "videos"
+        );
         await uploadToS3(video, uploadURL);
         payload.video = { s3Key: key, s3Url: fileUrl };
       }
@@ -137,7 +151,10 @@ export default function CMSForm({
         if (actionType === "slideshow") {
           let uploadedImages = [];
           for (const file of slideshowFiles) {
-            const { uploadURL, key, fileUrl } = await getPresignedUrl(file, "images");
+            const { uploadURL, key, fileUrl } = await getPresignedUrl(
+              file,
+              "images"
+            );
             await uploadToS3(file, uploadURL);
             uploadedImages.push({ s3Key: key, s3Url: fileUrl });
           }
@@ -149,7 +166,10 @@ export default function CMSForm({
           };
         } else if (actionFile && actionType !== "iframe") {
           const folder = actionType === "pdf" ? "pdfs" : "images";
-          const { uploadURL, key, fileUrl } = await getPresignedUrl(actionFile, folder);
+          const { uploadURL, key, fileUrl } = await getPresignedUrl(
+            actionFile,
+            folder
+          );
           await uploadToS3(actionFile, uploadURL);
           payload.action = {
             type: actionType,
@@ -167,6 +187,23 @@ export default function CMSForm({
           };
         }
       }
+
+      if (popupFile) {
+        const { uploadURL, key, fileUrl } = await getPresignedUrl(
+          popupFile,
+          "popups"
+        );
+        await uploadToS3(popupFile, uploadURL);
+        payload.action = {
+          ...payload.action,
+          popup: {
+            s3Key: key,
+            s3Url: fileUrl,
+            x: Number(popupX),
+            y: Number(popupY),
+          },
+        };
+      } 
 
       const url = initialData ? `/api/nodes/${initialData._id}` : "/api/nodes";
       const method = initialData ? "PUT" : "POST";
@@ -219,20 +256,49 @@ export default function CMSForm({
 
         {/* Position */}
         <Stack direction="row" spacing={2}>
-          <TextField label="X (%)" type="number" value={x} onChange={(e) => setX(e.target.value)} />
-          <TextField label="Y (%)" type="number" value={y} onChange={(e) => setY(e.target.value)} />
+          <TextField
+            label="X (%)"
+            type="number"
+            value={x}
+            onChange={(e) => setX(e.target.value)}
+          />
+          <TextField
+            label="Y (%)"
+            type="number"
+            value={y}
+            onChange={(e) => setY(e.target.value)}
+          />
         </Stack>
 
         {/* Size */}
         <Stack direction="row" spacing={2}>
-          <TextField label="Width" type="number" value={width} onChange={(e) => setWidth(e.target.value)} />
-          <TextField label="Height" type="number" value={height} onChange={(e) => setHeight(e.target.value)} />
+          <TextField
+            label="Width"
+            type="number"
+            value={width}
+            onChange={(e) => setWidth(e.target.value)}
+          />
+          <TextField
+            label="Height"
+            type="number"
+            value={height}
+            onChange={(e) => setHeight(e.target.value)}
+          />
         </Stack>
 
         {/* Video */}
-        <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+        <Button
+          component="label"
+          variant="outlined"
+          startIcon={<UploadFileIcon />}
+        >
           {initialData ? "Replace Video" : "Upload Video"}
-          <input type="file" hidden accept="video/*" onChange={(e) => setVideo(e.target.files[0])} />
+          <input
+            type="file"
+            hidden
+            accept="video/*"
+            onChange={(e) => setVideo(e.target.files[0])}
+          />
         </Button>
         {video && <Typography>🎬 {video.name}</Typography>}
 
@@ -256,10 +322,19 @@ export default function CMSForm({
         </TextField>
 
         {actionType === "iframe" ? (
-          <TextField label="iFrame URL" value={actionUrl} onChange={(e) => setActionUrl(e.target.value)} fullWidth />
+          <TextField
+            label="iFrame URL"
+            value={actionUrl}
+            onChange={(e) => setActionUrl(e.target.value)}
+            fullWidth
+          />
         ) : actionType === "slideshow" ? (
           <>
-            <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<UploadFileIcon />}
+            >
               Upload Slideshow Images
               <input
                 type="file"
@@ -267,7 +342,10 @@ export default function CMSForm({
                 multiple
                 accept="image/*"
                 onChange={(e) =>
-                  setSlideshowFiles([...slideshowFiles, ...Array.from(e.target.files)])
+                  setSlideshowFiles([
+                    ...slideshowFiles,
+                    ...Array.from(e.target.files),
+                  ])
                 }
               />
             </Button>
@@ -291,23 +369,28 @@ export default function CMSForm({
                     <img
                       src={preview}
                       alt={file.name}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
                     />
                     <IconButton
-  size="small"
-  onClick={() =>
-    setSlideshowFiles(slideshowFiles.filter((_, idx) => idx !== i))
-  }
-  sx={{
-    position: "absolute",
-    top: 2,
-    right: 2,
-    bgcolor: "rgba(255,255,255,0.7)",
-  }}
->
-  <DeleteIcon fontSize="small" color="error" />
-</IconButton>
-
+                      size="small"
+                      onClick={() =>
+                        setSlideshowFiles(
+                          slideshowFiles.filter((_, idx) => idx !== i)
+                        )
+                      }
+                      sx={{
+                        position: "absolute",
+                        top: 2,
+                        right: 2,
+                        bgcolor: "rgba(255,255,255,0.7)",
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" color="error" />
+                    </IconButton>
                   </Box>
                 );
               })}
@@ -327,12 +410,18 @@ export default function CMSForm({
                   <img
                     src={img.s3Url}
                     alt={`slideshow-${i}`}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
                   />
                   <IconButton
                     size="small"
                     onClick={() =>
-                      setExistingImages(existingImages.filter((_, idx) => idx !== i))
+                      setExistingImages(
+                        existingImages.filter((_, idx) => idx !== i)
+                      )
                     }
                     sx={{
                       position: "absolute",
@@ -349,14 +438,53 @@ export default function CMSForm({
           </>
         ) : actionType ? (
           <>
-            <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<UploadFileIcon />}
+            >
               Upload Action File
-              <input type="file" hidden onChange={(e) => setActionFile(e.target.files[0])} />
+              <input
+                type="file"
+                hidden
+                onChange={(e) => setActionFile(e.target.files[0])}
+              />
             </Button>
             {actionFile && <Typography>📎 {actionFile.name}</Typography>}
           </>
         ) : null}
 
+        <Typography variant="h6" sx={{ mt: 2 }}>
+          Popup (optional)
+        </Typography>
+        <Stack direction="row" spacing={2}>
+          <TextField
+            label="Popup X (%)"
+            type="number"
+            value={popupX}
+            onChange={(e) => setPopupX(e.target.value)}
+          />
+          <TextField
+            label="Popup Y (%)"
+            type="number"
+            value={popupY}
+            onChange={(e) => setPopupY(e.target.value)}
+          />
+        </Stack>
+        <Button
+          component="label"
+          variant="outlined"
+          startIcon={<UploadFileIcon />}
+        >
+          Upload Popup File
+          <input
+            type="file"
+            hidden
+            onChange={(e) => setPopupFile(e.target.files[0])}
+          />
+        </Button>
+        {popupFile && <Typography>📎 {popupFile.name}</Typography>}
+        
         {submitting && (
           <Box sx={{ width: "100%", mt: 2 }}>
             <LinearProgress variant="determinate" value={progress} />
@@ -364,7 +492,12 @@ export default function CMSForm({
           </Box>
         )}
 
-        <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSubmit} disabled={submitting}>
+        <Button
+          variant="contained"
+          startIcon={<SaveIcon />}
+          onClick={handleSubmit}
+          disabled={submitting}
+        >
           {initialData ? "Update Node" : "Save Node"}
         </Button>
       </Box>
