@@ -24,18 +24,18 @@ export async function GET() {
     }
 
     // 2. Time-based fallback
-    const now = new Date();
-    const timeStr = now.toTimeString().slice(0, 5); // "HH:mm"
+    // const now = new Date();
+    // const timeStr = now.toTimeString().slice(0, 5); // "HH:mm"
 
-    const activeItem = items.find(
-      (it) => it.startTime <= timeStr && it.endTime >= timeStr
-    );
-    const nextItem = items.find((it) => it.startTime > timeStr);
+    // const activeItem = items.find(
+    //   (it) => it.startTime <= timeStr && it.endTime >= timeStr
+    // );
+    // const nextItem = items.find((it) => it.startTime > timeStr);
 
-    return NextResponse.json({
-      activeItem: activeItem || null,
-      nextItem: nextItem || null,
-    });
+    // return NextResponse.json({
+    //   activeItem: activeItem || null,
+    //   nextItem: nextItem || null,
+    // });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
