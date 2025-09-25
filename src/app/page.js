@@ -259,7 +259,9 @@ export default function HomePage() {
     if (type === "pdf") {
       return (
         <iframe
-          src={url}
+          src={`https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(
+            url
+          )}`}
           style={{
             width: "100%",
             height: "100%",
