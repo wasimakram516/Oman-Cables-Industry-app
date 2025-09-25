@@ -217,17 +217,42 @@ export default function HomePage() {
 
     if (type === "video") {
       return (
-        <video
-          src={url}
-          controls
-          autoPlay
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            background: "black",
-          }}
-        />
+        <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
+          <video
+            src={url}
+            autoPlay
+            playsInline
+            muted
+            loop={false}
+            controls={false}
+            disablePictureInPicture
+            controlsList="nodownload nofullscreen noremoteplayback"
+            poster="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+            onWaiting={() => setVideoLoading(true)}
+            onPlaying={() => setVideoLoading(false)}
+            onLoadedData={() => setVideoLoading(false)}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              background: "black",
+            }}
+          />
+
+          {videoLoading && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <CircularProgress size={60} thickness={4} color="secondary" />
+            </Box>
+          )}
+        </Box>
       );
     }
 
@@ -311,6 +336,10 @@ export default function HomePage() {
               playsInline
               loop={currentNode === null}
               muted={currentNode === null ? isMuted : false}
+              controls={false}
+              disablePictureInPicture
+              controlsList="nodownload nofullscreen noremoteplayback"
+              poster="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
               onPlay={() => {
                 if (actionTimer.current) clearTimeout(actionTimer.current);
 
