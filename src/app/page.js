@@ -872,7 +872,7 @@ export default function HomePage() {
                 sx={{
                   position: "absolute",
                   top: `${currentNode.action.popup.y || 0}%`,
-                  left: `${currentNode.action.popup.x || 0}%`,
+                  right: `${currentNode.action.popup.x || 0}%`,
                   transform: "translate(-50%, -50%)",
                   maxWidth: "300px",
                   zIndex: 1000,

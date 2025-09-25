@@ -146,7 +146,8 @@ export default function CMSForm({
         payload.video = { s3Key: key, s3Url: fileUrl };
       }
 
-      // Action
+      // Action (main)
+      let actionPayload = null;
       if (actionType) {
         if (actionType === "slideshow") {
           let uploadedImages = [];
@@ -158,7 +159,7 @@ export default function CMSForm({
             await uploadToS3(file, uploadURL);
             uploadedImages.push({ s3Key: key, s3Url: fileUrl });
           }
-          payload.action = {
+          actionPayload = {
             type: "slideshow",
             images: [...existingImages, ...uploadedImages],
             width: Number(width),
@@ -171,7 +172,7 @@ export default function CMSForm({
             folder
           );
           await uploadToS3(actionFile, uploadURL);
-          payload.action = {
+          actionPayload = {
             type: actionType,
             s3Key: key,
             s3Url: fileUrl,
@@ -179,7 +180,7 @@ export default function CMSForm({
             height: Number(height),
           };
         } else if (actionType === "iframe" && actionUrl) {
-          payload.action = {
+          actionPayload = {
             type: "iframe",
             externalUrl: actionUrl,
             width: Number(width),
@@ -188,23 +189,31 @@ export default function CMSForm({
         }
       }
 
+      // Popup (optional — only file upload, no external URL)
+      let popupPayload = null;
       if (popupFile) {
         const { uploadURL, key, fileUrl } = await getPresignedUrl(
           popupFile,
           "popups"
         );
         await uploadToS3(popupFile, uploadURL);
-        payload.action = {
-          ...payload.action,
-          popup: {
-            s3Key: key,
-            s3Url: fileUrl,
-            x: Number(popupX),
-            y: Number(popupY),
-          },
+        popupPayload = {
+          s3Key: key,
+          s3Url: fileUrl,
+          x: Number(popupX),
+          y: Number(popupY),
         };
-      } 
+      }
 
+      // Merge both
+      if (actionPayload || popupPayload) {
+        payload.action = { ...actionPayload };
+        if (popupPayload) {
+          payload.action.popup = popupPayload;
+        }
+      }
+
+      // Save node
       const url = initialData ? `/api/nodes/${initialData._id}` : "/api/nodes";
       const method = initialData ? "PUT" : "POST";
       const res = await fetch(url, {
@@ -484,7 +493,7 @@ export default function CMSForm({
           />
         </Button>
         {popupFile && <Typography>📎 {popupFile.name}</Typography>}
-        
+
         {submitting && (
           <Box sx={{ width: "100%", mt: 2 }}>
             <LinearProgress variant="determinate" value={progress} />
