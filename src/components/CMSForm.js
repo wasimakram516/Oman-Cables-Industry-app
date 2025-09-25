@@ -11,9 +11,11 @@ import {
   Snackbar,
   Alert,
   Stack,
+  IconButton,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import SaveIcon from "@mui/icons-material/Save";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 function flattenNodes(nodes, prefix = "") {
   let result = [];
@@ -36,31 +38,34 @@ export default function CMSForm({
 }) {
   const [title, setTitle] = useState(initialData?.title || "");
   const [video, setVideo] = useState(null);
-  const [actionFile, setActionFile] = useState(null);
+
   const [actionType, setActionType] = useState(initialData?.action?.type || "");
-  const [actionUrl, setActionUrl] = useState(
-    initialData?.action?.externalUrl || ""
-  );
-  const [selectedParent, setSelectedParent] = useState(
-    initialData?.parent || parent || ""
-  );
-  const [x, setX] = useState(initialData?.x ?? 0);
-  const [y, setY] = useState(initialData?.y ?? 0);
+  const [actionFile, setActionFile] = useState(null);
+  const [actionUrl, setActionUrl] = useState(initialData?.action?.externalUrl || "");
+
+  const [slideshowFiles, setSlideshowFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState(initialData?.action?.images || []);
+
+  const [width, setWidth] = useState(initialData?.action?.width ?? 85);
+  const [height, setHeight] = useState(initialData?.action?.height ?? 95);
+
+  const [selectedParent, setSelectedParent] = useState(initialData?.parent || parent || "");
+  const [x, setX] = useState(initialData?.x ?? 50);
+  const [y, setY] = useState(initialData?.y ?? 50);
+
   const [progress, setProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "info",
   });
-
   const showSnackbar = (message, severity = "info") => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // 📌 Helper: request presigned URL
+  // Helpers
   const getPresignedUrl = async (file, folder) => {
     const res = await fetch("/api/nodes", {
       method: "POST",
@@ -72,53 +77,39 @@ export default function CMSForm({
         folder,
       }),
     });
-
     if (!res.ok) throw new Error("Failed to get presigned URL");
     return await res.json();
   };
 
-  // 📌 Helper: upload file directly to S3
   const uploadToS3 = (file, uploadURL) => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", uploadURL, true);
-
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const percent = Math.round((event.loaded / event.total) * 100);
           setProgress(percent);
         }
       };
-
-      xhr.onload = () =>
-        xhr.status === 200 ? resolve() : reject(new Error("Upload failed"));
+      xhr.onload = () => (xhr.status === 200 ? resolve() : reject(new Error("Upload failed")));
       xhr.onerror = () => reject(new Error("Upload error"));
-
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
     });
   };
 
-  // Submit Node
+  // Submit
   const handleSubmit = async () => {
-    // Validation
     if (!title.trim()) {
       showSnackbar("Title is required", "error");
       return;
     }
-
-    // Require video only if this node has a parent
     if (!initialData && !video && selectedParent) {
       showSnackbar("Video is required for child nodes", "error");
       return;
     }
-
-    if (isNaN(x) || isNaN(y)) {
-      showSnackbar("X and Y must be numbers", "error");
-      return;
-    }
-    if (x < 0 || x > 100 || y < 0 || y > 100) {
-      showSnackbar("X and Y must be between 0 and 100", "error");
+    if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height)) {
+      showSnackbar("Position and size fields must be numbers", "error");
       return;
     }
 
@@ -128,60 +119,63 @@ export default function CMSForm({
 
       let payload = {
         title,
-        parent: selectedParent || null, 
+        parent: selectedParent || null,
         order: 0,
         x: Number(x),
         y: Number(y),
       };
 
-      // Upload main video
+      // Video
       if (video) {
-        const { uploadURL, key, fileUrl } = await getPresignedUrl(
-          video,
-          "videos"
-        );
+        const { uploadURL, key, fileUrl } = await getPresignedUrl(video, "videos");
         await uploadToS3(video, uploadURL);
         payload.video = { s3Key: key, s3Url: fileUrl };
       }
 
-      // Upload action file only if actionType is not empty
+      // Action
       if (actionType) {
-        if (actionFile && actionType !== "link" && actionType !== "iframe") {
-          const folder =
-            actionType === "pdf"
-              ? "pdfs"
-              : actionType === "image"
-              ? "images"
-              : "others";
-          const { uploadURL, key, fileUrl } = await getPresignedUrl(
-            actionFile,
-            folder
-          );
+        if (actionType === "slideshow") {
+          let uploadedImages = [];
+          for (const file of slideshowFiles) {
+            const { uploadURL, key, fileUrl } = await getPresignedUrl(file, "images");
+            await uploadToS3(file, uploadURL);
+            uploadedImages.push({ s3Key: key, s3Url: fileUrl });
+          }
+          payload.action = {
+            type: "slideshow",
+            images: [...existingImages, ...uploadedImages],
+            width: Number(width),
+            height: Number(height),
+          };
+        } else if (actionFile && actionType !== "iframe") {
+          const folder = actionType === "pdf" ? "pdfs" : "images";
+          const { uploadURL, key, fileUrl } = await getPresignedUrl(actionFile, folder);
           await uploadToS3(actionFile, uploadURL);
-          payload.action = { type: actionType, s3Key: key, s3Url: fileUrl };
-        } else if (
-          (actionType === "iframe" || actionType === "link") &&
-          actionUrl
-        ) {
-          payload.action = { type: actionType, externalUrl: actionUrl };
+          payload.action = {
+            type: actionType,
+            s3Key: key,
+            s3Url: fileUrl,
+            width: Number(width),
+            height: Number(height),
+          };
+        } else if (actionType === "iframe" && actionUrl) {
+          payload.action = {
+            type: "iframe",
+            externalUrl: actionUrl,
+            width: Number(width),
+            height: Number(height),
+          };
         }
       }
 
-      // Save node
       const url = initialData ? `/api/nodes/${initialData._id}` : "/api/nodes";
       const method = initialData ? "PUT" : "POST";
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("❌ Save node failed:", res.status, errText);
-        throw new Error(`Failed to save node: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Failed to save node: ${res.status}`);
 
       showSnackbar("Node saved successfully", "success");
       onCreated();
@@ -198,18 +192,15 @@ export default function CMSForm({
   return (
     <>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-        {/* Title */}
         <TextField
           label="Node Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           fullWidth
           required
-          error={!title.trim()}
-          helperText={!title.trim() ? "Title is required" : ""}
         />
 
-        {/* Parent Selection */}
+        {/* Parent */}
         <TextField
           select
           label="Parent Node"
@@ -226,64 +217,23 @@ export default function CMSForm({
           ))}
         </TextField>
 
-        {/* Position fields */}
+        {/* Position */}
         <Stack direction="row" spacing={2}>
-          <TextField
-            label="X Position (%)"
-            type="number"
-            value={x}
-            onChange={(e) => setX(e.target.value)}
-            fullWidth
-            required
-            inputProps={{ min: 0, max: 100 }}
-            error={x < 0 || x > 100 || isNaN(x)}
-            helperText={
-              x < 0 || x > 100 || isNaN(x)
-                ? "Must be a number between 0 and 100"
-                : ""
-            }
-          />
-          <TextField
-            label="Y Position (%)"
-            type="number"
-            value={y}
-            onChange={(e) => setY(e.target.value)}
-            fullWidth
-            required
-            inputProps={{ min: 0, max: 100 }}
-            error={y < 0 || y > 100 || isNaN(y)}
-            helperText={
-              y < 0 || y > 100 || isNaN(y)
-                ? "Must be a number between 0 and 100"
-                : ""
-            }
-          />
+          <TextField label="X (%)" type="number" value={x} onChange={(e) => setX(e.target.value)} />
+          <TextField label="Y (%)" type="number" value={y} onChange={(e) => setY(e.target.value)} />
         </Stack>
 
-        {/* Video Upload */}
-        <Button
-          component="label"
-          variant="outlined"
-          startIcon={<UploadFileIcon />}
-        >
-          {initialData
-            ? "Replace Video"
-            : selectedParent
-            ? "Upload Video (Required for child nodes)"
-            : "Upload Video (Optional for parent nodes)"}
-          <input
-            type="file"
-            hidden
-            accept="video/*"
-            onChange={(e) => setVideo(e.target.files[0])}
-          />
-        </Button>
+        {/* Size */}
+        <Stack direction="row" spacing={2}>
+          <TextField label="Width" type="number" value={width} onChange={(e) => setWidth(e.target.value)} />
+          <TextField label="Height" type="number" value={height} onChange={(e) => setHeight(e.target.value)} />
+        </Stack>
 
-        {initialData?.video?.s3Url && !video && (
-          <Typography variant="body2" color="text.secondary">
-            Current: {initialData.video.s3Url}
-          </Typography>
-        )}
+        {/* Video */}
+        <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+          {initialData ? "Replace Video" : "Upload Video"}
+          <input type="file" hidden accept="video/*" onChange={(e) => setVideo(e.target.files[0])} />
+        </Button>
         {video && <Typography>🎬 {video.name}</Typography>}
 
         {/* Action */}
@@ -292,56 +242,121 @@ export default function CMSForm({
           label="Action Type"
           value={actionType}
           onChange={(e) => {
-            const val = e.target.value;
-            setActionType(val);
-            if (!val) {
-              setActionFile(null);
-              setActionUrl("");
-            }
+            setActionType(e.target.value);
+            setActionFile(null);
+            setSlideshowFiles([]);
           }}
           fullWidth
         >
           <MenuItem value="">None</MenuItem>
           <MenuItem value="pdf">PDF</MenuItem>
           <MenuItem value="image">Image</MenuItem>
-          <MenuItem value="video">Video</MenuItem>
           <MenuItem value="iframe">iFrame</MenuItem>
+          <MenuItem value="slideshow">Slideshow</MenuItem>
         </TextField>
 
-        {actionType === "iframe" || actionType === "link" ? (
-          <TextField
-            label="Action URL"
-            value={actionUrl}
-            onChange={(e) => setActionUrl(e.target.value)}
-            fullWidth
-          />
-        ) : (
-          actionType && (
-            <>
-              <Button
-                component="label"
-                variant="outlined"
-                startIcon={<UploadFileIcon />}
-              >
-                Upload Action File
-                <input
-                  type="file"
-                  hidden
-                  onChange={(e) => setActionFile(e.target.files[0])}
-                />
-              </Button>
+        {actionType === "iframe" ? (
+          <TextField label="iFrame URL" value={actionUrl} onChange={(e) => setActionUrl(e.target.value)} fullWidth />
+        ) : actionType === "slideshow" ? (
+          <>
+            <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+              Upload Slideshow Images
+              <input
+                type="file"
+                hidden
+                multiple
+                accept="image/*"
+                onChange={(e) =>
+                  setSlideshowFiles([...slideshowFiles, ...Array.from(e.target.files)])
+                }
+              />
+            </Button>
 
-              {/* Preview chosen file name */}
-              {actionFile && (
-                <Typography variant="body2" color="text.secondary">
-                  📎 {actionFile.name}
-                </Typography>
-              )}
-            </>
-          )
-        )}
+            {/* Previews */}
+            <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mt: 2 }}>
+              {slideshowFiles.map((file, i) => {
+                const preview = URL.createObjectURL(file);
+                return (
+                  <Box
+                    key={`new-${i}`}
+                    sx={{
+                      position: "relative",
+                      width: 100,
+                      height: 100,
+                      border: "1px solid #ccc",
+                      borderRadius: 1,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <img
+                      src={preview}
+                      alt={file.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                    <IconButton
+  size="small"
+  onClick={() =>
+    setSlideshowFiles(slideshowFiles.filter((_, idx) => idx !== i))
+  }
+  sx={{
+    position: "absolute",
+    top: 2,
+    right: 2,
+    bgcolor: "rgba(255,255,255,0.7)",
+  }}
+>
+  <DeleteIcon fontSize="small" color="error" />
+</IconButton>
 
-        {/* Progress */}
+                  </Box>
+                );
+              })}
+
+              {existingImages.map((img, i) => (
+                <Box
+                  key={`existing-${i}`}
+                  sx={{
+                    position: "relative",
+                    width: 100,
+                    height: 100,
+                    border: "1px solid #ccc",
+                    borderRadius: 1,
+                    overflow: "hidden",
+                  }}
+                >
+                  <img
+                    src={img.s3Url}
+                    alt={`slideshow-${i}`}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() =>
+                      setExistingImages(existingImages.filter((_, idx) => idx !== i))
+                    }
+                    sx={{
+                      position: "absolute",
+                      top: 2,
+                      right: 2,
+                      bgcolor: "rgba(255,255,255,0.7)",
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" color="error" />
+                  </IconButton>
+                </Box>
+              ))}
+            </Stack>
+          </>
+        ) : actionType ? (
+          <>
+            <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+              Upload Action File
+              <input type="file" hidden onChange={(e) => setActionFile(e.target.files[0])} />
+            </Button>
+            {actionFile && <Typography>📎 {actionFile.name}</Typography>}
+          </>
+        ) : null}
+
         {submitting && (
           <Box sx={{ width: "100%", mt: 2 }}>
             <LinearProgress variant="determinate" value={progress} />
@@ -349,31 +364,18 @@ export default function CMSForm({
           </Box>
         )}
 
-        {/* Save */}
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
+        <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSubmit} disabled={submitting}>
           {initialData ? "Update Node" : "Save Node"}
         </Button>
       </Box>
 
-      {/* Snackbar for messages */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
-          {snackbar.message}
-        </Alert>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </>
   );

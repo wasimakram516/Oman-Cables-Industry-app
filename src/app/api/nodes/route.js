@@ -12,7 +12,7 @@ const s3 = new S3Client({
   },
 });
 
-// 📌 Detect folder based on file type
+// Folder detection
 function getFolderByMime(mime) {
   if (mime.startsWith("video/")) return "videos";
   if (mime.startsWith("image/")) return "images";
@@ -20,7 +20,7 @@ function getFolderByMime(mime) {
   return "others";
 }
 
-// 📌 GET root nodes
+// 📌 GET all root nodes
 export async function GET() {
   await dbConnect();
   const nodes = await Node.find({ parent: null }).populate("children");
@@ -33,7 +33,7 @@ export async function POST(req) {
     await dbConnect();
     const body = await req.json();
 
-    // Case A: request for presigned URL
+    // Case A: request presigned URL
     if (body.presign) {
       const { fileName, fileType, folder } = body;
       const key = `${folder}/${Date.now()}-${fileName}`;
@@ -51,10 +51,9 @@ export async function POST(req) {
       });
     }
 
-    // Case B: create node with uploaded media info
+    // Case B: create node
     const { title, parent, order, video, action, x, y } = body;
 
-    // Only enforce video for child nodes
     if (parent && !video?.s3Url) {
       return NextResponse.json(
         { error: "Video is required for child nodes" },
@@ -71,6 +70,7 @@ export async function POST(req) {
       x: x ?? 0,
       y: y ?? 0,
     });
+
     await node.save();
 
     if (parent) {

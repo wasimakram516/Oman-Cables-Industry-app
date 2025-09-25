@@ -16,6 +16,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import HomeIcon from "@mui/icons-material/Home";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+
 import { keyframes } from "@mui/system";
 import FullPageLoader from "@/components/FullPageLoader";
 
@@ -38,6 +41,7 @@ export default function HomePage() {
   const [homeVideoKey, setHomeVideoKey] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [videoLoading, setVideoLoading] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
 
   // agenda state
   const [agendaActive, setAgendaActive] = useState(null);
@@ -198,19 +202,97 @@ export default function HomePage() {
     }
 
     if (!currentNode?.action) return null;
-    const { type, s3Url, externalUrl } = currentNode.action;
+    const { type, s3Url, externalUrl, images = [] } = currentNode.action;
     const url = s3Url || externalUrl;
+
+    if (type === "slideshow" && images.length > 0) {
+      const currentImg = images[slideIndex % images.length];
+      return (
+        <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
+          <img
+            src={currentImg.s3Url}
+            alt={`slide-${slideIndex}`}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+
+          {/* Prev button */}
+          <IconButton
+            onClick={() =>
+              setSlideIndex(
+                (prev) => (prev - 1 + images.length) % images.length
+              )
+            }
+            sx={{
+              position: "absolute",
+              left: 16,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              bgcolor: "rgba(0,0,0,0.5)",
+              color: "white",
+              "&:hover": { bgcolor: "rgba(0,0,0,0.8)" },
+            }}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+
+          {/* Next button */}
+          <IconButton
+            onClick={() => setSlideIndex((prev) => (prev + 1) % images.length)}
+            sx={{
+              position: "absolute",
+              right: 16,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              bgcolor: "rgba(0,0,0,0.5)",
+              color: "white",
+              "&:hover": { bgcolor: "rgba(0,0,0,0.8)" },
+            }}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+
+          {/* Dots */}
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              position: "absolute",
+              bottom: 16,
+              left: "50%",
+              transform: "translateX(-50%)",
+            }}
+          >
+            {images.map((_, i) => (
+              <Box
+                key={i}
+                onClick={() => setSlideIndex(i)}
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  bgcolor: i === slideIndex ? "#1976d2" : "#bbb", // blue for active, gray for inactive
+                  border: "1px solid white",
+                  cursor: "pointer",
+                }}
+              />
+            ))}
+          </Stack>
+        </Box>
+      );
+    }
 
     if (type === "image") {
       return (
         <img
           src={url}
           alt="Action"
-          style={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
-          }}
+          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
         />
       );
     }
@@ -227,10 +309,6 @@ export default function HomePage() {
             controls={false}
             disablePictureInPicture
             controlsList="nodownload nofullscreen noremoteplayback"
-            poster="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
-            onWaiting={() => setVideoLoading(true)}
-            onPlaying={() => setVideoLoading(false)}
-            onLoadedData={() => setVideoLoading(false)}
             style={{
               width: "100%",
               height: "100%",
@@ -238,20 +316,6 @@ export default function HomePage() {
               background: "black",
             }}
           />
-
-          {videoLoading && (
-            <Box
-              sx={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <CircularProgress size={60} thickness={4} color="secondary" />
-            </Box>
-          )}
         </Box>
       );
     }
@@ -262,34 +326,25 @@ export default function HomePage() {
           src={`https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(
             url
           )}`}
-          style={{
-            width: "100%",
-            height: "100%",
-            border: "none",
-          }}
+          style={{ width: "100%", height: "100%", border: "none" }}
         />
       );
     }
 
     if (type === "iframe") {
       return (
-        <Box sx={{ width: "100%", height: "100%" }}>
-          <iframe
-            src={url}
-            allow="fullscreen; xr-spatial-tracking"
-            allowFullScreen
-            style={{
-              width: "100%",
-              height: "100%",
-              border: "none",
-            }}
-          />
-        </Box>
+        <iframe
+          src={url}
+          allow="fullscreen; xr-spatial-tracking"
+          allowFullScreen
+          style={{ width: "100%", height: "100%", border: "none" }}
+        />
       );
     }
 
     return <Typography>No action available</Typography>;
   };
+
   return (
     <Box
       sx={{
@@ -674,10 +729,14 @@ export default function HomePage() {
         maxWidth={false}
         PaperProps={{
           sx: {
-            width: "95vw",
-            height: "85vh",
-            mt: "5%", // margin top
-            mx: "auto", // center horizontally
+            width: currentNode?.action?.width
+              ? `${currentNode.action.width}vw`
+              : "85vw",
+            height: currentNode?.action?.height
+              ? `${currentNode.action.height}vh`
+              : "95vh",
+            mt: "2%",
+            mx: "auto",
             borderRadius: 2,
             position: "relative",
             overflow: "hidden",

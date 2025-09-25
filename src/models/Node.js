@@ -3,13 +3,27 @@ import mongoose from "mongoose";
 const actionSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ["pdf", "image", "iframe", "link"],
+    enum: ["pdf", "image", "iframe", "slideshow"], 
     required: true,
   },
   title: { type: String },
+
+  // For single media (pdf, image, iframe)
   s3Key: { type: String },
   s3Url: { type: String },
   externalUrl: { type: String },
+
+  // For slideshow (multiple images)
+  images: [
+    {
+      s3Key: { type: String },
+      s3Url: { type: String },
+    },
+  ],
+
+  // Container sizing for frontend
+  width: { type: Number, default: 85 },  // (%, vh, px)
+  height: { type: Number, default: 95 }, // (%, vh, px)
 });
 
 const nodeSchema = new mongoose.Schema(
