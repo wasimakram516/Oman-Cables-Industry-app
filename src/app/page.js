@@ -73,7 +73,7 @@ export default function HomePage() {
   const [agendaDoc, setAgendaDoc] = useState(null);
   const [allSpeakers, setAllSpeakers] = useState([]);
   const [selectedSpeaker, setSelectedSpeaker] = useState(null);
-
+  const [vvip, setVvip] = useState(null);
   const marqueeRef = useRef(null);
   const actionTimer = useRef(null);
   const buttonSoundRef = useRef(null);
@@ -182,6 +182,42 @@ export default function HomePage() {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
     };
   }, [home]);
+
+  useEffect(() => {
+    let intervalId;
+
+    const fetchVvipPlaying = async () => {
+      try {
+        const res = await fetch("/api/vvips/playing");
+        const data = await res.json();
+
+        if (data) {
+          if (
+            !vvip ||
+            vvip._id !== data._id ||
+            vvip.video?.s3Url !== data.video?.s3Url
+          ) {
+            setVvip(data);
+            setCurrentVideo(data.video.s3Url);
+            setCurrentNode(null);
+            setOpenAction(false);
+            setVideoLoading(true);
+          }
+        } else {
+          // No VVIP → reset to home
+          if (vvip) {
+            setVvip(null);
+            resetToHome();
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error fetching playing VVIP:", err);
+      }
+    };
+
+    intervalId = setInterval(fetchVvipPlaying, 5000);
+    return () => clearInterval(intervalId);
+  }, [vvip, home]);
 
   const resetToHome = () => {
     if (!home) return;
@@ -442,39 +478,63 @@ export default function HomePage() {
       >
         {currentVideo ? (
           <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
-            <video
-              key={homeVideoKey}
-              ref={videoRef}
-              src={currentVideo}
-              autoPlay
-              playsInline
-              loop={currentNode === null}
-              muted={currentNode === null ? isMuted : false}
-              controls={false}
-              disablePictureInPicture
-              controlsList="nodownload nofullscreen noremoteplayback"
-              poster="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
-              onPlay={() => {
-                if (actionTimer.current) clearTimeout(actionTimer.current);
+            {vvip ? (
+              // VVIP video
+              <video
+                key={vvip._id}
+                src={vvip.video.s3Url}
+                autoPlay
+                playsInline
+                controls={false}
+                muted={false}
+                loop={false}
+                disablePictureInPicture
+                controlsList="nodownload nofullscreen noremoteplayback"
+                poster="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+                onEnded={() => {
+                  // Do nothing — wait for user to press Home
+                }}
+                onLoadedData={() => setVideoLoading(false)}
+                onWaiting={() => setVideoLoading(true)}
+                onPlaying={() => setVideoLoading(false)}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              // Normal home / node video
+              <video
+                key={homeVideoKey}
+                ref={videoRef}
+                src={currentVideo}
+                autoPlay
+                playsInline
+                loop={currentNode === null}
+                muted={currentNode === null ? isMuted : false}
+                controls={false}
+                disablePictureInPicture
+                controlsList="nodownload nofullscreen noremoteplayback"
+                poster="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+                onPlay={() => {
+                  if (actionTimer.current) clearTimeout(actionTimer.current);
 
-                if (currentNode?.action) {
-                  setSelectedSpeaker(null);
+                  if (currentNode?.action) {
+                    setSelectedSpeaker(null);
 
-                  const nodeForAction = currentNode;
+                    const nodeForAction = currentNode;
 
-                  actionTimer.current = setTimeout(() => {
-                    setOpenAction(true);
-                    setCurrentNode(nodeForAction);
-                  }, 5000);
-                }
+                    actionTimer.current = setTimeout(() => {
+                      setOpenAction(true);
+                      setCurrentNode(nodeForAction);
+                    }, 5000);
+                  }
 
-                setVideoLoading(false);
-              }}
-              onLoadedData={() => setVideoLoading(false)}
-              onWaiting={() => setVideoLoading(true)}
-              onPlaying={() => setVideoLoading(false)}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
+                  setVideoLoading(false);
+                }}
+                onLoadedData={() => setVideoLoading(false)}
+                onWaiting={() => setVideoLoading(true)}
+                onPlaying={() => setVideoLoading(false)}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            )}
 
             {currentVideo && videoLoading && (
               <Box
@@ -519,7 +579,7 @@ export default function HomePage() {
         </Box>
 
         {/* Show mute/unmute only on home */}
-        {currentNode === null && (
+        {!vvip && currentNode === null && (
           <IconButton
             onClick={() => {
               setIsMuted(!isMuted);
@@ -540,70 +600,83 @@ export default function HomePage() {
           </IconButton>
         )}
 
-        {(currentNode ? currentChildren : topNodes).map((node, idx) => (
-          <Box
-            key={node._id}
-            onClick={() => {
-              playClickSound();
+        {!vvip &&
+          (currentNode ? currentChildren : topNodes).map((node, idx) => (
+            <Box
+              key={node._id}
+              onClick={() => {
+                playClickSound();
 
-              if (node.video?.s3Url) {
-                setCurrentVideo(node.video.s3Url);
-                setVideoLoading(true);
-              } else {
-                setCurrentVideo(currentVideo || home?.video?.s3Url || null);
-                setVideoLoading(false);
-              }
+                if (node.video?.s3Url) {
+                  setCurrentVideo(node.video.s3Url);
+                  setVideoLoading(true);
+                } else {
+                  setCurrentVideo(currentVideo || home?.video?.s3Url || null);
+                  setVideoLoading(false);
+                }
 
-              setCurrentNode(node);
-              setOpenAction(false);
-            }}
-            sx={{
-              position: "absolute",
-              top: `${node.y}%`,
-              left: `${node.x}%`,
-              width: currentNode
-                ? "clamp(6rem, 25vw, 20rem)" // child style
-                : "clamp(8rem, 25vw, 28rem)", // parent style
-              height: currentNode
-                ? "clamp(6rem, 10vw, 20rem)"
-                : "clamp(8rem, 10vw, 28rem)",
-              borderRadius: "20px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "column",
-              fontSize: currentNode
-                ? "clamp(0.8rem, 2.5vw, 2rem)"
-                : "clamp(1rem, 3vw, 3rem)",
-              textTransform: "capitalize",
-              textAlign: "center",
-              padding: "0.5rem",
-              animation: `floatY 6s ease-in-out infinite`,
-              animationDelay: `${idx * 0.3}s`,
-              transition: "all 0.4s ease",
-              cursor: "pointer",
-              textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
-              background: currentNode
-                ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child
-                : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)", // parent
-              color: "#fff",
-              border: currentNode ? "2px solid #fff3e0" : "3px solid #d9f2d9",
-              boxShadow: `
+                setCurrentNode(node);
+                setOpenAction(false);
+              }}
+              sx={{
+                position: "absolute",
+                top: `${node.y}%`,
+                left: `${node.x}%`,
+                width: currentNode
+                  ? "clamp(6rem, 25vw, 20rem)" // child style
+                  : "clamp(8rem, 25vw, 28rem)", // parent style
+                height: currentNode
+                  ? "clamp(6rem, 10vw, 20rem)"
+                  : "clamp(8rem, 10vw, 28rem)",
+                borderRadius: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                fontSize: currentNode
+                  ? "clamp(0.8rem, 2.5vw, 2rem)"
+                  : "clamp(1rem, 3vw, 3rem)",
+                textTransform: "capitalize",
+                textAlign: "center",
+                padding: "0.5rem",
+                animation: `floatY 6s ease-in-out infinite`,
+                animationDelay: `${idx * 0.3}s`,
+                transition: "all 0.4s ease",
+                cursor: "pointer",
+                textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
+                background: currentNode
+                  ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child
+                  : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)", // parent
+                color: "#fff",
+                border: currentNode ? "2px solid #fff3e0" : "3px solid #d9f2d9",
+                boxShadow: `
         0 20px 30px rgba(0,0,0,0.6),
         0 6px 12px rgba(0,0,0,0.4), 
         0 4px 10px rgba(255,255,255,0.05) inset
       `,
-              "&:hover": {
-                background: currentNode
-                  ? "radial-gradient(circle at 30% 30%, #FFEB3B, #FB8C00)"
-                  : "radial-gradient(circle at 30% 30%, #8ed44a, #007a44)",
-                transform: "scale(1.05)",
-              },
-            }}
-          >
-            {node.title}
-          </Box>
-        ))}
+                "&:hover": {
+                  background: currentNode
+                    ? "radial-gradient(circle at 30% 30%, #FFEB3B, #FB8C00)"
+                    : "radial-gradient(circle at 30% 30%, #8ed44a, #007a44)",
+                  transform: "scale(1.05)",
+                },
+                "&.clicked": {
+                  animation: "clickPulse 0.3s ease",
+                },
+                "@keyframes floatY": {
+                  "0%, 100%": { transform: "translateY(0)" },
+                  "50%": { transform: "translateY(-25px)" },
+                },
+                "@keyframes clickPulse": {
+                  "0%": { transform: "scale(1)" },
+                  "50%": { transform: "scale(0.7)" },
+                  "100%": { transform: "scale(1)" },
+                },
+              }}
+            >
+              {node.title}
+            </Box>
+          ))}
       </Box>
 
       {/* Bottom 20% Speakers */}
@@ -611,13 +684,41 @@ export default function HomePage() {
         sx={{
           flex: 2,
           display: "flex",
-          bgcolor: "#fafafa",
+          alignItems: "center",
           px: 2,
           overflow: "hidden",
-          color: "#333",
+          color: "#fff",
+          position: "relative",
         }}
       >
-        {/* Active Speaker sticky */}
+        {/* Background video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          src="/speakersBg.mp4"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            zIndex: 0,
+          }}
+        />
+
+        {/* Dark overlay to improve contrast */}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            bgcolor: "rgba(0,0,0,0.4)",
+            zIndex: 0,
+          }}
+        />
+
+        {/* Active Speaker */}
         {activeSpeaker && (
           <Stack
             onClick={() => {
@@ -627,33 +728,25 @@ export default function HomePage() {
             }}
             alignItems="center"
             justifyContent="center"
+            spacing={1}
             sx={{
               minWidth: { xs: "32%", sm: "24%", md: "20%" },
-              height: "100%",
+              height: "85%",
               px: 2,
               py: 2,
-              mr: 2,
+              mr: 3,
               borderRadius: 3,
-              bgcolor: "rgba(255,255,255,0.7)",
-              backdropFilter: "blur(10px)",
-              boxShadow: "0 8px 24px rgba(0,200,83,0.25)",
+              bgcolor: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(12px)",
+              border: "3px solid #4caf50",
+              boxShadow: "0 0 20px rgba(76, 175, 80, 0.7)",
               position: "relative",
-              overflow: "hidden",
+              zIndex: 1,
+              cursor: "pointer",
+              transition: "transform 0.3s ease",
+              "&:hover": { transform: "scale(1.05)" },
             }}
           >
-            {/* Glow ring */}
-            <Box
-              sx={{
-                position: "absolute",
-                inset: -4,
-                borderRadius: "inherit",
-                background:
-                  "radial-gradient(circle at center, rgba(0,200,83,0.2), transparent 70%)",
-                animation: `${pulseGlow} 3s infinite`,
-                zIndex: 0,
-              }}
-            />
-
             {/* LIVE badge */}
             <Box
               sx={{
@@ -670,37 +763,27 @@ export default function HomePage() {
                 zIndex: 2,
               }}
             >
-              LIVE NOW
+              LIVE
             </Box>
 
-            {/* Avatar with gradient ring */}
             <Avatar
               src={activeSpeaker.photoUrl || ""}
               alt={activeSpeaker.name}
               sx={{
-                width: "13vh",
-                height: "13vh",
-                border: "3px solid transparent",
-                borderRadius: "50%",
-                backgroundImage:
-                  "linear-gradient(white, white), linear-gradient(135deg, #00c853, #b2ff59)",
-                backgroundOrigin: "border-box",
-                backgroundClip: "content-box, border-box",
-                mb: 1,
-                zIndex: 1,
+                width: "12vh",
+                height: "12vh",
+                border: "4px solid #4caf50",
               }}
             />
-
-            <Typography fontWeight="bold" textAlign="center" noWrap zIndex={1}>
+            <Typography fontWeight="bold" textAlign="center" noWrap>
               {activeSpeaker.name}
             </Typography>
             {activeSpeaker.title && (
               <Typography
                 variant="body2"
-                color="text.secondary"
+                color="grey.300"
                 textAlign="center"
                 noWrap
-                zIndex={1}
               >
                 {activeSpeaker.title}
               </Typography>
@@ -708,88 +791,79 @@ export default function HomePage() {
           </Stack>
         )}
 
-        {/* Marquee */}
+        {/* Inactive Speakers Marquee */}
         <Box
           sx={{
             flex: 1,
-            position: "relative",
             height: "100%",
             overflow: "hidden",
             display: "flex",
             alignItems: "center",
+            zIndex: 1,
           }}
         >
           <Box
             ref={marqueeRef}
             sx={{
               display: "flex",
-              gap: 4,
+              gap: 3,
               whiteSpace: "nowrap",
               willChange: "transform",
             }}
           >
             {orderedSpeakers.map((spk) => {
               const isNext = nextSpeaker && spk._id === nextSpeaker._id;
-
               return (
                 <Stack
+                  key={spk._id || `${spk.name}-${spk.startTime}`}
                   onClick={() => {
                     playClickSound();
                     setSelectedSpeaker(spk);
                     setOpenAction(true);
                   }}
-                  key={spk._id || `${spk.name}-${spk.startTime}`}
-                  direction="column"
                   alignItems="center"
                   justifyContent="center"
-                  spacing={0.5} // small vertical spacing between items
+                  spacing={0.5}
                   sx={{
-                    minWidth: "160px",
+                    minWidth: 140,
                     px: 2,
                     py: 1.5,
                     borderRadius: 2,
-                    bgcolor: "white",
-                    border: isNext ? "3px solid #ff9800" : "1px solid #ddd",
+                    bgcolor: "rgba(255,255,255,0.08)",
+                    border: isNext
+                      ? "2px solid #ff9800"
+                      : "1px solid rgba(255,255,255,0.2)",
+                    transition: "all 0.3s ease",
+                    cursor: "pointer",
+                    "&:hover": {
+                      transform: "scale(1.05)",
+                      bgcolor: "rgba(255,255,255,0.15)",
+                    },
                   }}
                 >
                   <Avatar
                     src={spk.photoUrl || ""}
                     alt={spk.name}
-                    sx={{ width: "9vh", height: "9vh" }}
+                    sx={{ width: "7vh", height: "7vh" }}
                   />
-
-                  <Typography fontWeight="bold" textAlign="center" noWrap>
+                  <Typography
+                    variant="body2"
+                    fontWeight="bold"
+                    textAlign="center"
+                    noWrap
+                  >
                     {spk.name}
                   </Typography>
-
                   {(spk.title || spk.company) && (
-                    <Stack direction="column" spacing={0.2} alignItems="center">
-                      {spk.title && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          textAlign="center"
-                          noWrap
-                        >
-                          {spk.title}
-                        </Typography>
-                      )}
-                      {spk.company && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          textAlign="center"
-                          noWrap
-                        >
-                          {spk.company}
-                        </Typography>
-                      )}
-                    </Stack>
+                    <Typography
+                      variant="caption"
+                      color="grey.400"
+                      textAlign="center"
+                      noWrap
+                    >
+                      {[spk.title, spk.company].filter(Boolean).join(" • ")}
+                    </Typography>
                   )}
-
-                  <Typography fontWeight="bold" textAlign="center" noWrap>
-                    {spk.startTime} – {spk.endTime}
-                  </Typography>
                 </Stack>
               );
             })}

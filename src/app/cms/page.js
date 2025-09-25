@@ -29,23 +29,35 @@ import CMSForm from "@/components/CMSForm";
 import HomeVideoModal from "@/components/HomeVideoModal";
 import AgendaModal from "@/components/AgendaModal";
 import FullPageLoader from "@/components/FullPageLoader";
+import VVIPForm from "@/components/VVIPForm";
 
 export default function CMSPage() {
   const [tree, setTree] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // node state
   const [openForm, setOpenForm] = useState(false);
   const [editNode, setEditNode] = useState(null);
   const [parentNode, setParentNode] = useState(null);
+
+  // home video state
   const [openHomeModal, setOpenHomeModal] = useState(false);
   const [homeVideo, setHomeVideo] = useState(null);
 
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [nodeToDelete, setNodeToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-
+  // agenda state
   const [openAgendaModal, setOpenAgendaModal] = useState(false);
   const [agenda, setAgenda] = useState(null);
   const [editAgendaIndex, setEditAgendaIndex] = useState(null);
+
+  // vvips state
+  const [vvips, setVvips] = useState([]);
+  const [openVvipModal, setOpenVvipModal] = useState(false);
+  const [editVvip, setEditVvip] = useState(null);
+
+  // delete state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     refreshAll();
@@ -86,24 +98,37 @@ export default function CMSPage() {
     }
   };
 
+  const fetchVvips = async () => {
+    try {
+      const res = await fetch("/api/vvips");
+      if (!res.ok) throw new Error(res.statusText);
+      return await res.json();
+    } catch (err) {
+      console.error("❌ fetchVvips error:", err);
+      return [];
+    }
+  };
+
   const refreshAll = async () => {
     setLoading(true);
     try {
-      const [treeData, homeData, agendaData] = await Promise.all([
+      const [treeData, homeData, agendaData, vvipsData] = await Promise.all([
         fetchTree(),
         fetchHomeVideo(),
         fetchAgenda(),
+        fetchVvips(),
       ]);
       setTree(treeData || []);
       setHomeVideo(homeData || null);
       setAgenda(agendaData || null);
+      setVvips(vvipsData || []);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteClick = (item, idx) => {
-    setNodeToDelete({ ...item, idx });
+  const handleDeleteClick = (item, type, idx) => {
+    setNodeToDelete({ ...item, type, idx });
     setDeleteConfirmOpen(true);
   };
 
@@ -111,8 +136,7 @@ export default function CMSPage() {
     if (!nodeToDelete) return;
     setDeleting(true);
     try {
-      if (nodeToDelete.idx !== undefined) {
-        // delete agenda item
+      if (nodeToDelete.type === "agenda") {
         const updatedItems = agenda.items.filter(
           (_, i) => i !== nodeToDelete.idx
         );
@@ -123,10 +147,12 @@ export default function CMSPage() {
           body: JSON.stringify(payload),
         });
         setAgenda(await fetchAgenda());
-      } else if (nodeToDelete._id) {
-        // delete node
+      } else if (nodeToDelete.type === "node") {
         await fetch(`/api/nodes/${nodeToDelete._id}`, { method: "DELETE" });
         setTree(await fetchTree());
+      } else if (nodeToDelete.type === "vvip") {
+        await fetch(`/api/vvips/${nodeToDelete._id}`, { method: "DELETE" });
+        setVvips(await fetchVvips());
       }
       setDeleteConfirmOpen(false);
       setNodeToDelete(null);
@@ -142,12 +168,12 @@ export default function CMSPage() {
       sx={{
         p: 4,
         backgroundColor: "#f9f9f9",
-        minHeight: "100vh",
         color: "#333",
+        minHeight: "100vh",
       }}
     >
       <Typography variant="h4" gutterBottom>
-        CMS – Manage Nodes & Agenda
+        CMS – Manage Nodes, Agenda & VVIPs
       </Typography>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
@@ -182,6 +208,17 @@ export default function CMSPage() {
           Add Speaker
         </Button>
         <Button
+          variant="contained"
+          color="info"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setEditVvip(null);
+            setOpenVvipModal(true);
+          }}
+        >
+          Add VVIP
+        </Button>
+        <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
           onClick={refreshAll}
@@ -190,16 +227,15 @@ export default function CMSPage() {
         </Button>
       </Stack>
 
-      {/* Nodes */}
       {loading ? (
         <FullPageLoader />
       ) : (
         <>
-          {/* Show home video */}
+          {/* Home Video */}
           {homeVideo?.s3Url && (
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Current Home Video:
+              <Typography variant="h5" gutterBottom>
+                Home Video
               </Typography>
               <video
                 src={homeVideo.s3Url}
@@ -209,22 +245,21 @@ export default function CMSPage() {
             </Box>
           )}
 
+          {/* Nodes */}
           <NodeAccordionTree
             nodes={tree}
             onEdit={(node) => {
               setEditNode(node);
               setOpenForm(true);
             }}
-            onDelete={(node) => {
-              setNodeToDelete(node);
-              setDeleteConfirmOpen(true);
-            }}
+            onDelete={(node) => handleDeleteClick(node, "node", undefined)}
             onAddChild={(node) => {
               setParentNode(node);
               setEditNode(null);
               setOpenForm(true);
             }}
           />
+
           {/* Agenda */}
           {agenda && (
             <Box sx={{ mt: 4 }}>
@@ -355,6 +390,84 @@ export default function CMSPage() {
               )}
             </Box>
           )}
+
+          {/* VVIPs */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h5" gutterBottom>
+              VVIPs
+            </Typography>
+            {vvips.length > 0 ? (
+              vvips.map((vvip, idx) => (
+                <Paper key={vvip._id} sx={{ p: 2, mb: 1.5 }}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box>
+                        <Typography variant="h6">{vvip.name}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {vvip.designation}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={vvip.play || false}
+                            onChange={async (e) => {
+                              const updated = vvips.map((v, i) => ({
+                                ...v,
+                                play: i === idx ? e.target.checked : false,
+                              }));
+
+                              await fetch(`/api/vvips/${vvip._id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  play: e.target.checked,
+                                }),
+                              });
+
+                              setVvips(updated);
+                            }}
+                          />
+                        }
+                        label="Play"
+                      />
+
+                      <IconButton
+                        color="primary"
+                        onClick={() => {
+                          setEditVvip(vvip);
+                          setOpenVvipModal(true);
+                        }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteClick(vvip, "vvip", idx)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                  {vvip.video?.s3Url && (
+                    <video
+                      src={vvip.video.s3Url}
+                      controls
+                      style={{ marginTop: 8, maxWidth: 150, borderRadius: 6 }}
+                    />
+                  )}
+                </Paper>
+              ))
+            ) : (
+              <Typography>No VVIPs yet.</Typography>
+            )}
+          </Box>
         </>
       )}
 
@@ -378,9 +491,27 @@ export default function CMSPage() {
               allNodes={tree}
             />
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenForm(false)}>Close</Button>
-          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* VVIP Form */}
+      {openVvipModal && (
+        <Dialog
+          open={openVvipModal}
+          onClose={() => setOpenVvipModal(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            {editVvip ? `Edit VVIP: ${editVvip.name}` : "Add VVIP"}
+          </DialogTitle>
+          <DialogContent dividers>
+            <VVIPForm
+              onClose={() => setOpenVvipModal(false)}
+              onCreated={refreshAll}
+              initialData={editVvip}
+            />
+          </DialogContent>
         </Dialog>
       )}
 
@@ -392,17 +523,8 @@ export default function CMSPage() {
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {nodeToDelete?.idx !== undefined ? (
-              <>
-                Are you sure you want to delete agenda item{" "}
-                <strong>{nodeToDelete?.name}</strong>?
-              </>
-            ) : (
-              <>
-                Are you sure you want to delete node{" "}
-                <strong>{nodeToDelete?.title}</strong>?
-              </>
-            )}
+            Are you sure you want to delete{" "}
+            <strong>{nodeToDelete?.name || nodeToDelete?.title}</strong>?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -435,7 +557,6 @@ export default function CMSPage() {
           onUploaded={refreshAll}
         />
       )}
-
       {openAgendaModal && (
         <AgendaModal
           open={openAgendaModal}
