@@ -10,8 +10,9 @@ export async function GET() {
 
     const items = doc.items || [];
 
-    // 1. Manual active has top priority
+    // Only check for manual active
     const manualActive = items.find((it) => it.isActive);
+
     if (manualActive) {
       const idx = items.findIndex((it) => it._id.equals(manualActive._id));
       const nextItem =
@@ -23,19 +24,8 @@ export async function GET() {
       });
     }
 
-    // 2. Time-based fallback
-    // const now = new Date();
-    // const timeStr = now.toTimeString().slice(0, 5); // "HH:mm"
-
-    // const activeItem = items.find(
-    //   (it) => it.startTime <= timeStr && it.endTime >= timeStr
-    // );
-    // const nextItem = items.find((it) => it.startTime > timeStr);
-
-    // return NextResponse.json({
-    //   activeItem: activeItem || null,
-    //   nextItem: nextItem || null,
-    // });
+    // If no manual active, return nulls
+    return NextResponse.json({ activeItem: null, nextItem: null });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
