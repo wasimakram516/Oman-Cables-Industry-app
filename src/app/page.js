@@ -21,6 +21,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 import { keyframes } from "@mui/system";
 import FullPageLoader from "@/components/FullPageLoader";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Glow animation
 const pulseGlow = keyframes`
@@ -30,15 +31,27 @@ const pulseGlow = keyframes`
 `;
 
 // Slide animations
-const slideInNext = keyframes`
-  from { opacity: 0; transform: translateX(40px); }
-  to { opacity: 1; transform: translateX(0); }
-`;
-
-const slideInPrev = keyframes`
-  from { opacity: 0; transform: translateX(-40px); }
-  to { opacity: 1; transform: translateX(0); }
-`;
+const slideVariants = {
+  enter: (direction) => ({
+    x: direction > 0 ? 300 : -300,
+    opacity: 0,
+    scale: 0.95,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    zIndex: 1,
+    transition: { type: "spring", stiffness: 300, damping: 30 },
+  },
+  exit: (direction) => ({
+    x: direction > 0 ? -300 : 300,
+    opacity: 0,
+    scale: 0.95,
+    zIndex: 0,
+    transition: { duration: 0.3 },
+  }),
+};
 
 export default function HomePage() {
   const [home, setHome] = useState(null);
@@ -228,30 +241,32 @@ export default function HomePage() {
             overflow: "hidden",
           }}
         >
-          <Box
-            key={slideIndex}
-            sx={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              animation: `${
-                direction === "next" ? slideInNext : slideInPrev
-              } 0.6s ease`,
-            }}
-          >
-            <img
+          {/* Animated slides */}
+          <AnimatePresence initial={false} custom={direction}>
+            <motion.img
+              key={slideIndex}
               src={images[slideIndex].s3Url}
               alt={`slide-${slideIndex}`}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.4 }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                position: "absolute",
+                borderRadius: "8px",
+              }}
             />
-          </Box>
+          </AnimatePresence>
 
           {/* Prev button */}
           <IconButton
             onClick={() => {
-              setDirection("prev");
+              setDirection(-1);
               setSlideIndex(
                 (prev) => (prev - 1 + images.length) % images.length
               );
@@ -267,6 +282,7 @@ export default function HomePage() {
               bgcolor: "rgba(0,0,0,0.5)",
               color: "white",
               "&:hover": { bgcolor: "rgba(0,0,0,0.8)" },
+              zIndex: 1000,
             }}
           >
             <ChevronLeftIcon />
@@ -275,7 +291,7 @@ export default function HomePage() {
           {/* Next button */}
           <IconButton
             onClick={() => {
-              setDirection("next");
+              setDirection(1);
               setSlideIndex((prev) => (prev + 1) % images.length);
             }}
             sx={{
@@ -289,6 +305,7 @@ export default function HomePage() {
               bgcolor: "rgba(0,0,0,0.5)",
               color: "white",
               "&:hover": { bgcolor: "rgba(0,0,0,0.8)" },
+              zIndex: 1000,
             }}
           >
             <ChevronRightIcon />
@@ -309,7 +326,7 @@ export default function HomePage() {
               <Box
                 key={i}
                 onClick={() => {
-                  setDirection(i > slideIndex ? "next" : "prev");
+                  setDirection(i > slideIndex ? 1 : -1);
                   setSlideIndex(i);
                 }}
                 sx={{
@@ -319,6 +336,7 @@ export default function HomePage() {
                   bgcolor: i === slideIndex ? "#1976d2" : "#bbb",
                   border: "1px solid white",
                   cursor: "pointer",
+                  transition: "all 0.3s ease",
                 }}
               />
             ))}
