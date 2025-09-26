@@ -276,8 +276,13 @@ export default function CMSPage() {
                         p: 2,
                         mb: 1.5,
                         backgroundColor: item.isActive ? "#e8f5e9" : "#fff",
-                        border: "1px solid #ccc",
+                        border: item.isActive
+                          ? "2px solid #4caf50"
+                          : "1px solid #ccc",
                         borderRadius: 2,
+                        boxShadow: item.isActive
+                          ? "0 0 12px rgba(76, 175, 80, 0.5)"
+                          : "none",
                       }}
                     >
                       <Stack
@@ -397,73 +402,117 @@ export default function CMSPage() {
               VVIPs
             </Typography>
             {vvips.length > 0 ? (
-              vvips.map((vvip, idx) => (
-                <Paper key={vvip._id} sx={{ p: 2, mb: 1.5 }}>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
+              vvips.map((vvip, idx) => {
+                const isPlaying = vvip.play;
+
+                return (
+                  <Paper
+                    key={vvip._id}
+                    sx={{
+                      p: 2,
+                      mb: 1.5,
+                      backgroundColor: isPlaying ? "#e3f2fd" : "#fff",
+                      border: isPlaying
+                        ? "2px solid #1976d2"
+                        : "1px solid #ccc",
+                      borderRadius: 2,
+                      position: "relative",
+                      boxShadow: isPlaying
+                        ? "0 0 12px rgba(25, 118, 210, 0.5)"
+                        : "none",
+                    }}
                   >
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Box>
-                        <Typography variant="h6">{vvip.name}</Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {vvip.designation}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={vvip.play || false}
-                            onChange={async (e) => {
-                              const updated = vvips.map((v, i) => ({
-                                ...v,
-                                play: i === idx ? e.target.checked : false,
-                              }));
-
-                              await fetch(`/api/vvips/${vvip._id}`, {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  play: e.target.checked,
-                                }),
-                              });
-
-                              setVvips(updated);
-                            }}
-                          />
-                        }
-                        label="Play"
-                      />
-
-                      <IconButton
-                        color="primary"
-                        onClick={() => {
-                          setEditVvip(vvip);
-                          setOpenVvipModal(true);
+                    {/* PLAYING badge */}
+                    {isPlaying && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 8,
+                          right: 8,
+                          bgcolor: "#1976d2",
+                          color: "white",
+                          fontSize: "0.7rem",
+                          fontWeight: "bold",
+                          px: 1.2,
+                          py: 0.3,
+                          borderRadius: 1,
+                          zIndex: 2,
+                          boxShadow: "0 0 8px rgba(0,0,0,0.2)",
                         }}
                       >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        color="error"
-                        onClick={() => handleDeleteClick(vvip, "vvip", idx)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                        PLAYING
+                      </Box>
+                    )}
+
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Box>
+                          <Typography variant="h6">{vvip.name}</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            {vvip.designation}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={vvip.play || false}
+                              onChange={async (e) => {
+                                const updated = vvips.map((v, i) => ({
+                                  ...v,
+                                  play: i === idx ? e.target.checked : false,
+                                }));
+
+                                await fetch(`/api/vvips/${vvip._id}`, {
+                                  method: "PUT",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    play: e.target.checked,
+                                  }),
+                                });
+
+                                setVvips(updated);
+                              }}
+                            />
+                          }
+                          label="Play"
+                        />
+
+                        <IconButton
+                          color="primary"
+                          onClick={() => {
+                            setEditVvip(vvip);
+                            setOpenVvipModal(true);
+                          }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleDeleteClick(vvip, "vvip", idx)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Stack>
                     </Stack>
-                  </Stack>
-                  {vvip.video?.s3Url && (
-                    <video
-                      src={vvip.video.s3Url}
-                      controls
-                      style={{ marginTop: 8, maxWidth: 150, borderRadius: 6 }}
-                    />
-                  )}
-                </Paper>
-              ))
+
+                    {vvip.video?.s3Url && (
+                      <video
+                        src={vvip.video.s3Url}
+                        controls
+                        style={{ marginTop: 8, maxWidth: 150, borderRadius: 6 }}
+                      />
+                    )}
+                  </Paper>
+                );
+              })
             ) : (
               <Typography>No VVIPs yet.</Typography>
             )}

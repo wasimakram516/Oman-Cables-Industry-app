@@ -736,15 +736,25 @@ export default function HomePage() {
               py: 2,
               mr: 3,
               borderRadius: 3,
-              bgcolor: "rgba(255,255,255,0.1)",
-              backdropFilter: "blur(12px)",
+              bgcolor:
+                "linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05))",
+              backdropFilter: "blur(16px)",
               border: "3px solid #4caf50",
-              boxShadow: "0 0 20px rgba(76, 175, 80, 0.7)",
+              boxShadow: "0 0 25px rgba(76, 175, 80, 0.6)",
+              animation: "pulseGlow 2s infinite",
               position: "relative",
               zIndex: 1,
               cursor: "pointer",
-              transition: "transform 0.3s ease",
-              "&:hover": { transform: "scale(1.05)" },
+              transition: "all 0.3s ease",
+              "&:hover": {
+                transform: "scale(1.05)",
+                boxShadow: "0 0 35px rgba(76, 175, 80, 0.9)",
+              },
+              "@keyframes pulseGlow": {
+                "0%": { boxShadow: "0 0 15px rgba(76, 175, 80, 0.5)" },
+                "50%": { boxShadow: "0 0 30px rgba(76, 175, 80, 0.9)" },
+                "100%": { boxShadow: "0 0 15px rgba(76, 175, 80, 0.5)" },
+              },
             }}
           >
             {/* LIVE badge */}
@@ -757,10 +767,12 @@ export default function HomePage() {
                 color: "white",
                 fontSize: "0.7rem",
                 fontWeight: "bold",
-                px: 1.2,
-                py: 0.3,
-                borderRadius: 1,
+                px: 1.4,
+                py: 0.4,
+                borderRadius: "99px",
                 zIndex: 2,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                letterSpacing: "0.5px",
               }}
             >
               LIVE
@@ -772,16 +784,29 @@ export default function HomePage() {
               sx={{
                 width: "12vh",
                 height: "12vh",
-                border: "4px solid #4caf50",
+                border: "3px solid #4caf50",
+                boxShadow: "0 0 15px rgba(76, 175, 80, 0.5)",
+                animation: "pulseGlow 2s infinite",
+                "@keyframes pulseGlow": {
+                  "0%": { boxShadow: "0 0 15px rgba(76, 175, 80, 0.5)" },
+                  "50%": { boxShadow: "0 0 30px rgba(76, 175, 80, 0.9)" },
+                  "100%": { boxShadow: "0 0 15px rgba(76, 175, 80, 0.5)" },
+                },
               }}
             />
-            <Typography fontWeight="bold" textAlign="center" noWrap>
+
+            <Typography
+              fontWeight="bold"
+              textAlign="center"
+              sx={{ mt: 1, fontSize: "clamp(0.9rem, 1.2vw, 1.1rem)" }}
+              noWrap
+            >
               {activeSpeaker.name}
             </Typography>
             {activeSpeaker.title && (
               <Typography
                 variant="body2"
-                color="grey.300"
+                sx={{ color: "grey.200", fontSize: "0.85rem" }}
                 textAlign="center"
                 noWrap
               >
