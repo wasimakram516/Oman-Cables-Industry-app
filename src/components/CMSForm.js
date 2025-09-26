@@ -115,10 +115,43 @@ export default function CMSForm({
       showSnackbar("Title is required", "error");
       return;
     }
-    if (!initialData && !video && selectedParent) {
-      showSnackbar("Video is required for child nodes", "error");
-      return;
+
+    // Child node validations
+    if (selectedParent) {
+      if (!initialData && !video) {
+        showSnackbar("Video is required for child nodes", "error");
+        return;
+      }
+      if (!initialData && !actionType) {
+        showSnackbar("Action is required for child nodes", "error");
+        return;
+      }
     }
+
+    // Validate action completeness if actionType chosen
+    if (actionType) {
+      if (
+        actionType === "slideshow" &&
+        slideshowFiles.length === 0 &&
+        existingImages.length === 0
+      ) {
+        showSnackbar("Please upload at least one image for slideshow", "error");
+        return;
+      }
+      if (
+        ["pdf", "image"].includes(actionType) &&
+        !actionFile &&
+        !initialData?.action?.s3Url
+      ) {
+        showSnackbar(`Please upload a file for ${actionType} action`, "error");
+        return;
+      }
+      if (actionType === "iframe" && !actionUrl.trim()) {
+        showSnackbar("Please enter a valid iFrame URL", "error");
+        return;
+      }
+    }
+
     if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height)) {
       showSnackbar("Position and size fields must be numbers", "error");
       return;
@@ -132,8 +165,8 @@ export default function CMSForm({
 
       // Basic fields
       if (title !== initialData?.title) payload.title = title;
-      if (selectedParent !== (initialData?.parent || parent || ""))
-        payload.parent = selectedParent || null;
+      payload.parent = selectedParent || null;
+
       if (x !== initialData?.x) payload.x = Number(x);
       if (y !== initialData?.y) payload.y = Number(y);
       if (width !== initialData?.action?.width) payload.width = Number(width);
@@ -150,7 +183,7 @@ export default function CMSForm({
         payload.video = { s3Key: key, s3Url: fileUrl };
       }
 
-      // 🎬 Action (only if we touched it)
+      // 🎬 Action (required for child nodes, optional for parent)
       let actionPayload = {};
       if (actionType) {
         if (actionType === "slideshow") {
@@ -203,8 +236,8 @@ export default function CMSForm({
       if (Number(popupY) !== initialData?.action?.popup?.y)
         popupPayload.y = Number(popupY);
 
-      // Merge into action if any popup field was touched
-      if (Object.keys(popupPayload).length > 0) {
+      // 🚨 Only merge popup if an action type is selected
+      if (actionType && Object.keys(popupPayload).length > 0) {
         actionPayload.popup = popupPayload;
       }
 
@@ -316,9 +349,16 @@ export default function CMSForm({
           label="Action Type"
           value={actionType}
           onChange={(e) => {
-            setActionType(e.target.value);
+            const val = e.target.value;
+            setActionType(val);
             setActionFile(null);
             setSlideshowFiles([]);
+            if (!val) {
+              // reset popup when no action type
+              setPopupFile(null);
+              setPopupX(50);
+              setPopupY(50);
+            }
           }}
           fullWidth
         >

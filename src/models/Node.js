@@ -4,7 +4,9 @@ const actionSchema = new mongoose.Schema({
   type: {
     type: String,
     enum: ["pdf", "image", "iframe", "slideshow"], 
-    required: true,
+    required: function () {
+      return !!this.parent; // only required if this node has a parent
+    },
   },
   title: { type: String },
 
@@ -62,7 +64,14 @@ const nodeSchema = new mongoose.Schema(
     },
 
     children: [{ type: mongoose.Schema.Types.ObjectId, ref: "Node" }],
-    action: actionSchema,
+
+    // Action is optional for parent, required for child
+    action: {
+      type: actionSchema,
+      required: function () {
+        return !!this.parent; // child must have an action
+      },
+    },
 
     x: { type: Number, default: 50 }, // X position on screen
     y: { type: Number, default: 50 }, // Y position on screen
