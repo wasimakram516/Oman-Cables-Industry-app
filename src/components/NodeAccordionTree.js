@@ -28,9 +28,6 @@ function NodeAccordionItem({ node, onEdit, onDelete, onAddChild }) {
 
   return (
     <>
-      <Typography variant="h5" gutterBottom>
-        Nodes
-      </Typography>
       <Accordion
         disableGutters
         expanded={expanded}
@@ -138,6 +135,9 @@ export default function NodeAccordionTree({
 
   return (
     <Box>
+      <Typography variant="h5" gutterBottom>
+        Nodes
+      </Typography>
       {nodes.map((n) => (
         <NodeAccordionItem
           key={n._id}
