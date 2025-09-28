@@ -888,7 +888,7 @@ export default function HomePage() {
               gap: 3,
               whiteSpace: "nowrap",
               willChange: "transform",
-              animation: `${scrollX} 25s linear infinite`,
+              animation: `${scrollX} 35s linear infinite`,
             }}
           >
             {orderedSpeakers.map((spk) => {
