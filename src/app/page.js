@@ -617,7 +617,7 @@ export default function HomePage() {
           }}
         >
           <img
-            src="/OCI QR.gif"
+            src="/OCI QR.png"
             alt="OCI QR Code"
             style={{
               width: "25vw",
