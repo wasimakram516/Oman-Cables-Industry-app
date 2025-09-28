@@ -696,12 +696,13 @@ export default function HomePage() {
                   cursor: "pointer",
                   textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
                   background: currentNode
-                    ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child
-                    : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)", // parent
-                  color: "#fff",
+                    ? "#e2de1c" // child solid lemon
+                    : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)",
+                  color: currentNode ? "#333" : "#fff",
                   border: currentNode
-                    ? "2px solid #fff3e0"
+                    ? "2px solid #d5e7de"
                     : "3px solid #d9f2d9",
+
                   boxShadow: `
         0 20px 30px rgba(0,0,0,0.6),
         0 6px 12px rgba(0,0,0,0.4), 
@@ -709,10 +710,11 @@ export default function HomePage() {
       `,
                   "&:hover": {
                     background: currentNode
-                      ? "radial-gradient(circle at 30% 30%, #FFEB3B, #FB8C00)"
+                      ? "#d6d11a"
                       : "radial-gradient(circle at 30% 30%, #8ed44a, #007a44)",
                     transform: "scale(1.05)",
                   },
+
                   "&.clicked": {
                     animation: "clickPulse 0.3s ease",
                   },
