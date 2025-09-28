@@ -397,11 +397,11 @@ export default function HomePage() {
             src={url}
             autoPlay
             playsInline
-            muted
             loop={false}
-            controls={false}
+            controls
             disablePictureInPicture
             controlsList="nodownload nofullscreen noremoteplayback"
+            poster="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
             style={{
               width: "100%",
               height: "100%",

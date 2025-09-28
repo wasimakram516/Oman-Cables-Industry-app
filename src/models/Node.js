@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const actionSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ["pdf", "image", "iframe", "slideshow"], 
+    enum: ["pdf", "image", "video", "iframe", "slideshow"], 
     required: function () {
       return !!this.parent; // only required if this node has a parent
     },

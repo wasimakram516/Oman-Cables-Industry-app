@@ -139,7 +139,7 @@ export default function CMSForm({
         return;
       }
       if (
-        ["pdf", "image"].includes(actionType) &&
+        ["pdf", "image", "video"].includes(actionType) &&
         !actionFile &&
         !initialData?.action?.s3Url
       ) {
@@ -354,7 +354,6 @@ export default function CMSForm({
             setActionFile(null);
             setSlideshowFiles([]);
             if (!val) {
-              // reset popup when no action type
               setPopupFile(null);
               setPopupX(50);
               setPopupY(50);
@@ -365,6 +364,7 @@ export default function CMSForm({
           <MenuItem value="">None</MenuItem>
           <MenuItem value="pdf">PDF</MenuItem>
           <MenuItem value="image">Image</MenuItem>
+          <MenuItem value="video">Video</MenuItem>
           <MenuItem value="iframe">iFrame</MenuItem>
           <MenuItem value="slideshow">Slideshow</MenuItem>
         </TextField>
@@ -491,10 +491,11 @@ export default function CMSForm({
               variant="outlined"
               startIcon={<UploadFileIcon />}
             >
-              Upload Action File
+              {actionType === "video" ? "Upload Video" : "Upload Action File"}
               <input
                 type="file"
                 hidden
+                accept={actionType === "video" ? "video/*" : undefined}
                 onChange={(e) => setActionFile(e.target.files[0])}
               />
             </Button>
