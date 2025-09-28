@@ -16,7 +16,9 @@ export default function SpeakerCard({ spk, isNext, onClick }) {
         py: 1.5,
         borderRadius: 2,
         bgcolor: "rgba(255,255,255,0.08)",
-        border: isNext ? "2px solid #ff9800" : "1px solid rgba(255,255,255,0.2)",
+        border: isNext
+          ? "2px solid #ff9800"
+          : "1px solid rgba(255,255,255,0.2)",
         transition: "all 0.3s ease",
         cursor: "pointer",
         "&:hover": {
@@ -30,6 +32,8 @@ export default function SpeakerCard({ spk, isNext, onClick }) {
         alt={spk.name}
         sx={{ width: "7vh", height: "7vh" }}
       />
+
+      {/* Name */}
       <Typography
         variant="body2"
         fontWeight="bold"
@@ -38,6 +42,8 @@ export default function SpeakerCard({ spk, isNext, onClick }) {
       >
         {spk.name}
       </Typography>
+
+      {/* Title & Company */}
       {(spk.title || spk.company) && (
         <Typography
           variant="caption"
@@ -46,6 +52,18 @@ export default function SpeakerCard({ spk, isNext, onClick }) {
           noWrap
         >
           {[spk.title, spk.company].filter(Boolean).join(" • ")}
+        </Typography>
+      )}
+
+      {/* Timings */}
+      {spk.startTime && spk.endTime && (
+        <Typography
+          variant="caption"
+          color="grey.300"
+          textAlign="center"
+          sx={{ fontSize: "0.75rem" }}
+        >
+          {spk.startTime} – {spk.endTime}
         </Typography>
       )}
     </Stack>

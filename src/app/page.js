@@ -6,20 +6,16 @@ import {
   Typography,
   CircularProgress,
   Dialog,
-  DialogTitle,
   DialogContent,
   IconButton,
   Avatar,
   Stack,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import HomeIcon from "@mui/icons-material/Home";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-
-import { keyframes } from "@mui/system";
 import FullPageLoader from "@/components/FullPageLoader";
 import { motion, AnimatePresence } from "framer-motion";
 import SpeakerCard from "@/components/SpeakerCard";
@@ -46,11 +42,6 @@ const slideVariants = {
     transition: { duration: 0.3 },
   }),
 };
-
-const scrollX = keyframes`
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
-`;
 
 export default function HomePage() {
   const [home, setHome] = useState(null);
@@ -879,23 +870,23 @@ export default function HomePage() {
             display: "flex",
             alignItems: "center",
             zIndex: 1,
+            minWidth: 0, 
           }}
         >
           <Box
-            ref={marqueeRef}
             sx={{
               display: "flex",
               gap: 3,
               whiteSpace: "nowrap",
               willChange: "transform",
-              animation: `${scrollX} 35s linear infinite`,
+              animation: "marqueeScroll 40s linear infinite",
             }}
           >
-            {orderedSpeakers.map((spk) => {
+            {orderedSpeakers.concat(orderedSpeakers).map((spk, idx) => {
               const isNext = nextSpeaker && spk._id === nextSpeaker._id;
               return (
                 <SpeakerCard
-                  key={spk._id}
+                  key={`${spk._id}-${idx}`}
                   spk={spk}
                   isNext={isNext}
                   onClick={() => {
@@ -908,6 +899,17 @@ export default function HomePage() {
             })}
           </Box>
         </Box>
+
+        <style jsx global>{`
+          @keyframes marqueeScroll {
+            0% {
+              transform: translateX(0%);
+            }
+            100% {
+              transform: translateX(-50%);
+            }
+          }
+        `}</style>
       </Box>
 
       {/* Action Popup */}
