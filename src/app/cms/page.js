@@ -303,10 +303,12 @@ export default function CMSPage() {
                                 checked={item.isActive || false}
                                 onChange={async (e) => {
                                   const updatedItems = agenda.items.map(
-                                    (it, i) => ({
+                                    (it) => ({
                                       ...it,
                                       isActive:
-                                        i === idx ? e.target.checked : false, // only one active
+                                        it._id === item._id
+                                          ? e.target.checked
+                                          : false,
                                     })
                                   );
 
@@ -324,6 +326,7 @@ export default function CMSPage() {
                             }
                             label="Active"
                           />
+
                           <IconButton
                             color="primary"
                             onClick={() => {
