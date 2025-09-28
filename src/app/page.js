@@ -696,7 +696,7 @@ export default function HomePage() {
                   cursor: "pointer",
                   textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
                   background: currentNode
-                    ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child
+                    ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child color
                     : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)", // parent
                   color: "#fff",
                   border: currentNode
