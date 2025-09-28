@@ -22,13 +22,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { keyframes } from "@mui/system";
 import FullPageLoader from "@/components/FullPageLoader";
 import { motion, AnimatePresence } from "framer-motion";
-
-// Glow animation
-const pulseGlow = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(0,200,83,0.7); }
-  70% { box-shadow: 0 0 0 15px rgba(0,200,83,0); }
-  100% { box-shadow: 0 0 0 0 rgba(0,200,83,0); }
-`;
+import SpeakerCard from "@/components/SpeakerCard";
 
 // Slide animations
 const slideVariants = {
@@ -52,6 +46,11 @@ const slideVariants = {
     transition: { duration: 0.3 },
   }),
 };
+
+const scrollX = keyframes`
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+`;
 
 export default function HomePage() {
   const [home, setHome] = useState(null);
@@ -147,17 +146,19 @@ export default function HomePage() {
     const el = marqueeRef.current;
     if (!el || orderedSpeakers.length === 0) return;
 
-    const totalWidth = el.scrollWidth;
-    const visibleWidth = el.parentElement.clientWidth;
-    const distance = totalWidth > visibleWidth ? totalWidth : visibleWidth;
+    // Wrap content twice → endless loop illusion
+    const wrapper = el.parentElement;
+    const clone = el.cloneNode(true);
+    clone.style.marginLeft = "30px"; // small gap
+    wrapper.appendChild(clone);
 
-    const msPerPx = 30;
-    const duration = distance * msPerPx;
+    const totalWidth = el.scrollWidth + clone.scrollWidth + 30;
+    const duration = totalWidth * 30; // msPerPx
 
-    const anim = el.animate(
+    wrapper.animate(
       [
         { transform: "translateX(0)" },
-        { transform: `translateX(-${distance}px)` },
+        { transform: `translateX(-${el.scrollWidth + 30}px)` },
       ],
       {
         duration,
@@ -166,8 +167,10 @@ export default function HomePage() {
       }
     );
 
-    return () => anim.cancel();
-  }, [orderedSpeakers]);
+    return () => {
+      wrapper.removeChild(clone);
+    };
+  }, [orderedSpeakers.length]);
 
   // 4. inactivity timer
   useEffect(() => {
@@ -885,62 +888,22 @@ export default function HomePage() {
               gap: 3,
               whiteSpace: "nowrap",
               willChange: "transform",
+              animation: `${scrollX} 15s linear infinite`,
             }}
           >
             {orderedSpeakers.map((spk) => {
               const isNext = nextSpeaker && spk._id === nextSpeaker._id;
               return (
-                <Stack
-                  key={spk._id || `${spk.name}-${spk.startTime}`}
+                <SpeakerCard
+                  key={spk._id}
+                  spk={spk}
+                  isNext={isNext}
                   onClick={() => {
                     playClickSound();
                     setSelectedSpeaker(spk);
                     setOpenAction(true);
                   }}
-                  alignItems="center"
-                  justifyContent="center"
-                  spacing={0.5}
-                  sx={{
-                    minWidth: 140,
-                    px: 2,
-                    py: 1.5,
-                    borderRadius: 2,
-                    bgcolor: "rgba(255,255,255,0.08)",
-                    border: isNext
-                      ? "2px solid #ff9800"
-                      : "1px solid rgba(255,255,255,0.2)",
-                    transition: "all 0.3s ease",
-                    cursor: "pointer",
-                    "&:hover": {
-                      transform: "scale(1.05)",
-                      bgcolor: "rgba(255,255,255,0.15)",
-                    },
-                  }}
-                >
-                  <Avatar
-                    src={spk.photoUrl || ""}
-                    alt={spk.name}
-                    sx={{ width: "7vh", height: "7vh" }}
-                  />
-                  <Typography
-                    variant="body2"
-                    fontWeight="bold"
-                    textAlign="center"
-                    noWrap
-                  >
-                    {spk.name}
-                  </Typography>
-                  {(spk.title || spk.company) && (
-                    <Typography
-                      variant="caption"
-                      color="grey.400"
-                      textAlign="center"
-                      noWrap
-                    >
-                      {[spk.title, spk.company].filter(Boolean).join(" • ")}
-                    </Typography>
-                  )}
-                </Stack>
+                />
               );
             })}
           </Box>
