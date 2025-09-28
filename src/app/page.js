@@ -459,11 +459,14 @@ export default function HomePage() {
             top: 16,
             left: 16,
             zIndex: 999,
+            width: 64, // bigger button size
+            height: 64,
+            borderRadius: "50%",
             bgcolor: "rgba(255,255,255,0.8)",
             "&:hover": { bgcolor: "rgba(255,255,255,1)" },
           }}
         >
-          <HomeIcon />
+          <HomeIcon sx={{ fontSize: 36 }} />
         </IconButton>
       )}
 
@@ -901,6 +904,7 @@ export default function HomePage() {
         open={openAction}
         onClose={() => {
           setOpenAction(false);
+          resetToHome();
           setSelectedSpeaker(null);
         }}
         maxWidth={false}
@@ -926,6 +930,7 @@ export default function HomePage() {
           onClick={() => {
             setOpenAction(false);
             setSelectedSpeaker(null);
+            resetToHome();
           }}
           sx={{
             position: "absolute",
