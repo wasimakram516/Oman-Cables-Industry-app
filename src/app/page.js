@@ -246,6 +246,28 @@ export default function HomePage() {
     }
   };
 
+  const findNodeById = (nodes, id) => {
+    for (const node of nodes) {
+      if (node._id === id) return node;
+      if (node.children?.length) {
+        const found = findNodeById(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  function findParentNode(tree, childId) {
+    for (const node of tree) {
+      if (node.children?.some((c) => c._id === childId)) {
+        return node; // found parent
+      }
+      const deeper = findParentNode(node.children || [], childId);
+      if (deeper) return deeper;
+    }
+    return null;
+  }
+
   const renderActionContent = () => {
     if (selectedSpeaker) {
       if (selectedSpeaker.infoImageUrl) {
@@ -581,6 +603,28 @@ export default function HomePage() {
           />
         </Box>
 
+        {/* OCI QR*/}
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 50,
+          }}
+        >
+          <img
+            src="/OCI QR.gif"
+            alt="OCI QR Code"
+            style={{
+              width: "25vw",
+              objectFit: "contain",
+              borderRadius: 10,
+              filter: "drop-shadow(0px 4px 8px rgba(0,0,0,0.6))",
+            }}
+          />
+        </Box>
+
         {/* Show mute/unmute only on home */}
         {!vvip && currentNode === null && (
           <IconButton
@@ -604,82 +648,86 @@ export default function HomePage() {
         )}
 
         {!vvip &&
-          (currentNode ? currentChildren : topNodes).map((node, idx) => (
-            <Box
-              key={node._id}
-              onClick={() => {
-                playClickSound();
+          (currentNode ? currentNode.children || [] : topNodes).map(
+            (node, idx) => (
+              <Box
+                key={node._id}
+                onClick={() => {
+                  playClickSound();
 
-                if (node.video?.s3Url) {
-                  setCurrentVideo(node.video.s3Url);
-                  setVideoLoading(true);
-                } else {
-                  setCurrentVideo(currentVideo || home?.video?.s3Url || null);
-                  setVideoLoading(false);
-                }
+                  if (node.video?.s3Url) {
+                    setCurrentVideo(node.video.s3Url);
+                    setVideoLoading(true);
+                  } else {
+                    setCurrentVideo(currentVideo || home?.video?.s3Url || null);
+                    setVideoLoading(false);
+                  }
 
-                setCurrentNode(node);
-                setOpenAction(false);
-              }}
-              sx={{
-                position: "absolute",
-                top: `${node.y}%`,
-                left: `${node.x}%`,
-                width: currentNode
-                  ? "clamp(6rem, 25vw, 20rem)" // child style
-                  : "clamp(8rem, 25vw, 28rem)", // parent style
-                height: currentNode
-                  ? "clamp(6rem, 10vw, 20rem)"
-                  : "clamp(8rem, 10vw, 28rem)",
-                borderRadius: "20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                fontSize: currentNode
-                  ? "clamp(0.8rem, 2.5vw, 2rem)"
-                  : "clamp(1rem, 3vw, 3rem)",
-                textTransform: "capitalize",
-                textAlign: "center",
-                padding: "0.5rem",
-                animation: `floatY 6s ease-in-out infinite`,
-                animationDelay: `${idx * 0.3}s`,
-                transition: "all 0.4s ease",
-                cursor: "pointer",
-                textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
-                background: currentNode
-                  ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child
-                  : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)", // parent
-                color: "#fff",
-                border: currentNode ? "2px solid #fff3e0" : "3px solid #d9f2d9",
-                boxShadow: `
+                  setCurrentNode(node);
+                  setOpenAction(false);
+                }}
+                sx={{
+                  position: "absolute",
+                  top: `${node.y}%`,
+                  left: `${node.x}%`,
+                  width: currentNode
+                    ? "clamp(6rem, 25vw, 20rem)" // child style
+                    : "clamp(8rem, 25vw, 28rem)", // parent style
+                  height: currentNode
+                    ? "clamp(6rem, 10vw, 20rem)"
+                    : "clamp(8rem, 10vw, 28rem)",
+                  borderRadius: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  fontSize: currentNode
+                    ? "clamp(0.8rem, 2.5vw, 2rem)"
+                    : "clamp(1rem, 3vw, 3rem)",
+                  textTransform: "capitalize",
+                  textAlign: "center",
+                  padding: "0.5rem",
+                  animation: `floatY 6s ease-in-out infinite`,
+                  animationDelay: `${idx * 0.3}s`,
+                  transition: "all 0.4s ease",
+                  cursor: "pointer",
+                  textShadow: "0px 2px 5px rgba(0,0,0,0.9)",
+                  background: currentNode
+                    ? "radial-gradient(circle at 30% 30%, #FFD54F, #FF9800)" // child
+                    : "radial-gradient(circle at 30% 30%, #7BBE3A, #006838)", // parent
+                  color: "#fff",
+                  border: currentNode
+                    ? "2px solid #fff3e0"
+                    : "3px solid #d9f2d9",
+                  boxShadow: `
         0 20px 30px rgba(0,0,0,0.6),
         0 6px 12px rgba(0,0,0,0.4), 
         0 4px 10px rgba(255,255,255,0.05) inset
       `,
-                "&:hover": {
-                  background: currentNode
-                    ? "radial-gradient(circle at 30% 30%, #FFEB3B, #FB8C00)"
-                    : "radial-gradient(circle at 30% 30%, #8ed44a, #007a44)",
-                  transform: "scale(1.05)",
-                },
-                "&.clicked": {
-                  animation: "clickPulse 0.3s ease",
-                },
-                "@keyframes floatY": {
-                  "0%, 100%": { transform: "translateY(0)" },
-                  "50%": { transform: "translateY(-25px)" },
-                },
-                "@keyframes clickPulse": {
-                  "0%": { transform: "scale(1)" },
-                  "50%": { transform: "scale(0.7)" },
-                  "100%": { transform: "scale(1)" },
-                },
-              }}
-            >
-              {node.title}
-            </Box>
-          ))}
+                  "&:hover": {
+                    background: currentNode
+                      ? "radial-gradient(circle at 30% 30%, #FFEB3B, #FB8C00)"
+                      : "radial-gradient(circle at 30% 30%, #8ed44a, #007a44)",
+                    transform: "scale(1.05)",
+                  },
+                  "&.clicked": {
+                    animation: "clickPulse 0.3s ease",
+                  },
+                  "@keyframes floatY": {
+                    "0%, 100%": { transform: "translateY(0)" },
+                    "50%": { transform: "translateY(-25px)" },
+                  },
+                  "@keyframes clickPulse": {
+                    "0%": { transform: "scale(1)" },
+                    "50%": { transform: "scale(0.7)" },
+                    "100%": { transform: "scale(1)" },
+                  },
+                }}
+              >
+                {node.title}
+              </Box>
+            )
+          )}
       </Box>
 
       {/* Bottom 20% Speakers */}
@@ -924,9 +972,52 @@ export default function HomePage() {
           },
         }}
       >
-        {/* Close button */}
+        {/* Left Back Button → go to parent node */}
+        {currentNode?.parent && (
+          <IconButton
+            aria-label="back"
+            onClick={() => {
+              playClickSound();
+
+              if (!currentNode) {
+                resetToHome(); // already at root
+                return;
+              }
+
+              // find parent
+              const parentNode = findParentNode(topNodes, currentNode._id);
+
+              if (parentNode) {
+                setCurrentNode(parentNode);
+                setCurrentVideo(
+                  parentNode.video?.s3Url || home?.video?.s3Url || null
+                );
+                setVideoLoading(!!parentNode.video?.s3Url);
+              } else {
+                // no parent found → must be root
+                resetToHome();
+              }
+
+              setOpenAction(false);
+              setSelectedSpeaker(null);
+            }}
+            sx={{
+              position: "absolute",
+              top: 16,
+              left: 16,
+              zIndex: 999,
+              borderRadius: "50%",
+              bgcolor: "rgba(255,255,255,0.8)",
+              "&:hover": { bgcolor: "rgba(255,255,255,1)" },
+            }}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        )}
+
+        {/* Right Home Button → reset to home */}
         <IconButton
-          aria-label="close"
+          aria-label="home"
           onClick={() => {
             setOpenAction(false);
             setSelectedSpeaker(null);
@@ -936,13 +1027,12 @@ export default function HomePage() {
             position: "absolute",
             right: 16,
             top: 16,
-            color: "error.main",
             zIndex: 999,
             bgcolor: "rgba(255,255,255,0.8)",
-            "&:hover": { bgcolor: "rgba(0,0,0,0.7)", color: "white" },
+            "&:hover": { bgcolor: "rgba(255,255,255,1)" },
           }}
         >
-          <CloseIcon />
+          <HomeIcon />
         </IconButton>
 
         <DialogContent
