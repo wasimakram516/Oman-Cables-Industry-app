@@ -17,7 +17,7 @@ import {
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs from "dayjs";
 
-export default function AgendaModal({ open, onClose, agenda, editIndex }) {
+export default function AgendaModal({ open, onClose, agenda, editId }) {
   const emptySpeaker = {
     startTime: "",
     endTime: "",
@@ -40,12 +40,13 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
   });
 
   useEffect(() => {
-    if (editIndex !== null && agenda?.items?.[editIndex]) {
-      setFormData(agenda.items[editIndex]);
+    if (editId && agenda?.items) {
+      const found = agenda.items.find((it) => it._id === editId);
+      setFormData(found || emptySpeaker);
     } else {
       setFormData(emptySpeaker);
     }
-  }, [editIndex, agenda]);
+  }, [editId, agenda]);
 
   const handleChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -109,8 +110,10 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
     setSaving(true);
     try {
       let updatedItems = [...(agenda?.items || [])];
-      if (editIndex !== null) {
-        updatedItems[editIndex] = formData;
+      if (editId) {
+        updatedItems = updatedItems.map((it) =>
+          it._id === editId ? formData : it
+        );
       } else {
         updatedItems.push(formData);
       }
@@ -135,9 +138,8 @@ export default function AgendaModal({ open, onClose, agenda, editIndex }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {editIndex !== null ? "Edit Speaker" : "Add Speaker"}
-      </DialogTitle>
+      <DialogTitle>{editId ? "Edit Speaker" : "Add Speaker"}</DialogTitle>
+
       <DialogContent dividers>
         <Stack spacing={2}>
           {/* Time pickers */}

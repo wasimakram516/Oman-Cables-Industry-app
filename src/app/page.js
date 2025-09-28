@@ -564,7 +564,7 @@ export default function HomePage() {
         <Box
           sx={{
             position: "absolute",
-            top: 20,
+            top: 0,
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 50,

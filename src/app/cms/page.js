@@ -127,18 +127,20 @@ export default function CMSPage() {
     }
   };
 
-  const handleDeleteClick = (item, type, idx) => {
-    setNodeToDelete({ ...item, type, idx });
+  // Open delete confirmation
+  const handleDeleteClick = (item, type) => {
+    setNodeToDelete({ ...item, type });
     setDeleteConfirmOpen(true);
   };
 
+  // Confirm delete
   const confirmDelete = async () => {
     if (!nodeToDelete) return;
     setDeleting(true);
     try {
       if (nodeToDelete.type === "agenda") {
         const updatedItems = agenda.items.filter(
-          (_, i) => i !== nodeToDelete.idx
+          (it) => it._id !== nodeToDelete._id // 👈 delete by unique _id
         );
         const payload = { items: updatedItems };
         await fetch(`/api/agenda/${agenda._id}`, {
@@ -326,14 +328,14 @@ export default function CMSPage() {
                             color="primary"
                             onClick={() => {
                               setOpenAgendaModal(true);
-                              setEditAgendaIndex(idx);
+                              setEditAgendaIndex(item._id);
                             }}
                           >
                             <EditIcon />
                           </IconButton>
                           <IconButton
                             color="error"
-                            onClick={() => handleDeleteClick(item, idx)}
+                            onClick={() => handleDeleteClick(item, "agenda")}
                           >
                             <DeleteIcon />
                           </IconButton>
@@ -615,7 +617,7 @@ export default function CMSPage() {
             refreshAll();
           }}
           agenda={agenda}
-          editIndex={editAgendaIndex}
+          editId={editAgendaIndex}
         />
       )}
     </Box>
