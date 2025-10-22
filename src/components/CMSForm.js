@@ -408,7 +408,7 @@ export default function CMSForm({
           <input
             type="file"
             hidden
-            accept=".vtt,.srt"
+            accept=".vtt"
             onChange={(e) => setSubtitleFile(e.target.files[0])}
           />
         </Button>
@@ -590,7 +590,7 @@ export default function CMSForm({
                   <input
                     type="file"
                     hidden
-                    accept=".vtt,.srt"
+                    accept=".vtt"
                     onChange={(e) => setActionSubtitleFile(e.target.files[0])}
                   />
                 </Button>
