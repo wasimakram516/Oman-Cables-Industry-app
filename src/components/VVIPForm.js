@@ -20,6 +20,9 @@ export default function VVIPForm({ onClose, onCreated, initialData }) {
   const [videoFile, setVideoFile] = useState(null);
   const [existingVideo, setExistingVideo] = useState(initialData?.video || null);
 
+  const [subtitleFile, setSubtitleFile] = useState(null);
+  const [existingSubtitle, setExistingSubtitle] = useState(initialData?.video?.subtitle || null);
+
   const [progress, setProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,18 +85,33 @@ export default function VVIPForm({ onClose, onCreated, initialData }) {
 
       let payload = { name, designation };
 
-      // Handle video upload if new file selected
+      // --- 🎬 Upload Video ---
       if (videoFile) {
-        const { uploadURL, key, fileUrl } = await getPresignedUrl(
-          videoFile,
-          "vvips"
-        );
+        const { uploadURL, key, fileUrl } = await getPresignedUrl(videoFile, "vvips");
         await uploadToS3(videoFile, uploadURL);
         payload.video = { s3Key: key, s3Url: fileUrl };
       } else if (existingVideo) {
         payload.video = existingVideo;
       }
 
+      // --- 💬 Upload Subtitle (optional) ---
+      if (subtitleFile) {
+        const { uploadURL, key, fileUrl } = await getPresignedUrl(
+          subtitleFile,
+          "subtitles"
+        );
+        await uploadToS3(subtitleFile, uploadURL);
+
+        // attach subtitle under video object
+        payload.video = payload.video || {};
+        payload.video.subtitle = { s3Key: key, s3Url: fileUrl };
+      } else if (existingSubtitle && !subtitleFile) {
+        // keep old subtitle if not replaced
+        payload.video = payload.video || {};
+        payload.video.subtitle = existingSubtitle;
+      }
+
+      // --- 📤 Save to DB ---
       const url = initialData ? `/api/vvips/${initialData._id}` : "/api/vvips";
       const method = initialData ? "PUT" : "POST";
 
@@ -134,12 +152,8 @@ export default function VVIPForm({ onClose, onCreated, initialData }) {
         required
       />
 
-      {/* Video Upload */}
-      <Button
-        component="label"
-        variant="outlined"
-        startIcon={<UploadFileIcon />}
-      >
+      {/* 🎥 Video Upload */}
+      <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
         {initialData ? "Replace Video" : "Upload Video"}
         <input
           type="file"
@@ -159,6 +173,28 @@ export default function VVIPForm({ onClose, onCreated, initialData }) {
         </Typography>
       )}
 
+      {/* 💬 Subtitle Upload */}
+      <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+        {initialData ? "Replace Subtitles" : "Upload Subtitles"}
+        <input
+          type="file"
+          hidden
+          accept=".vtt"
+          onChange={(e) => {
+            setSubtitleFile(e.target.files[0]);
+            setExistingSubtitle(null);
+          }}
+        />
+      </Button>
+
+      {subtitleFile && <Typography>💬 {subtitleFile.name}</Typography>}
+      {existingSubtitle && (
+        <Typography color="textSecondary">
+          Existing Subtitles: {existingSubtitle.s3Key}
+        </Typography>
+      )}
+
+      {/* Progress */}
       {submitting && (
         <Box sx={{ width: "100%", mt: 2 }}>
           <LinearProgress variant="determinate" value={progress} />

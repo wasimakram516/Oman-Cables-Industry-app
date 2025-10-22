@@ -14,10 +14,14 @@ const VVIPSchema = new mongoose.Schema(
     video: {
       s3Key: { type: String, required: true },
       s3Url: { type: String, required: true },
+      subtitle: {
+        s3Key: { type: String },
+        s3Url: { type: String },
+      },
     },
     play: {
       type: Boolean,
-      default: false, 
+      default: false,
     },
   },
   { timestamps: true }

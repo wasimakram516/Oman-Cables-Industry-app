@@ -6,6 +6,10 @@ const HomeSchema = new mongoose.Schema(
       s3Key: { type: String },
       s3Url: { type: String },
     },
+    subtitle: {
+      s3Key: { type: String },
+      s3Url: { type: String },
+    }, 
   },
   { timestamps: true }
 );

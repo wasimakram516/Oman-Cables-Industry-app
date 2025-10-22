@@ -38,11 +38,19 @@ export default function CMSForm({
 }) {
   const [title, setTitle] = useState(initialData?.title || "");
   const [video, setVideo] = useState(null);
+  const [subtitleFile, setSubtitleFile] = useState(null);
+  const [existingSubtitle, setExistingSubtitle] = useState(
+    initialData?.video?.subtitle || null
+  );
 
   const [actionType, setActionType] = useState(initialData?.action?.type || "");
   const [actionFile, setActionFile] = useState(null);
   const [actionUrl, setActionUrl] = useState(
     initialData?.action?.externalUrl || ""
+  );
+  const [actionSubtitleFile, setActionSubtitleFile] = useState(null);
+  const [existingActionSubtitle, setExistingActionSubtitle] = useState(
+    initialData?.action?.subtitle || null
   );
 
   const [slideshowFiles, setSlideshowFiles] = useState([]);
@@ -181,6 +189,23 @@ export default function CMSForm({
         );
         await uploadToS3(video, uploadURL);
         payload.video = { s3Key: key, s3Url: fileUrl };
+      } else if (initialData?.video) {
+        payload.video = initialData.video;
+      }
+
+      // 💬 Subtitle Upload (optional)
+      if (subtitleFile) {
+        const { uploadURL, key, fileUrl } = await getPresignedUrl(
+          subtitleFile,
+          "subtitles"
+        );
+        await uploadToS3(subtitleFile, uploadURL);
+
+        payload.video = payload.video || {};
+        payload.video.subtitle = { s3Key: key, s3Url: fileUrl };
+      } else if (existingSubtitle && !subtitleFile) {
+        payload.video = payload.video || {};
+        payload.video.subtitle = existingSubtitle;
       }
 
       // 🎬 Action (required for child nodes, optional for parent)
@@ -208,9 +233,34 @@ export default function CMSForm({
           actionPayload.type = actionType;
           actionPayload.s3Key = key;
           actionPayload.s3Url = fileUrl;
-        } else if (actionType === "iframe" && actionUrl) {
-          actionPayload.type = "iframe";
-          actionPayload.externalUrl = actionUrl;
+        } else if (actionFile && actionType !== "iframe") {
+          const folder =
+            actionType === "pdf"
+              ? "pdfs"
+              : actionType === "video"
+              ? "videos"
+              : "images";
+          const { uploadURL, key, fileUrl } = await getPresignedUrl(
+            actionFile,
+            folder
+          );
+          await uploadToS3(actionFile, uploadURL);
+          actionPayload.type = actionType;
+          actionPayload.s3Key = key;
+          actionPayload.s3Url = fileUrl;
+
+          // 💬 Subtitle for action video
+          if (actionType === "video" && actionSubtitleFile) {
+            const {
+              uploadURL: subUrl,
+              key: subKey,
+              fileUrl: subFileUrl,
+            } = await getPresignedUrl(actionSubtitleFile, "subtitles");
+            await uploadToS3(actionSubtitleFile, subUrl);
+            actionPayload.subtitle = { s3Key: subKey, s3Url: subFileUrl };
+          } else if (existingActionSubtitle && !actionSubtitleFile) {
+            actionPayload.subtitle = existingActionSubtitle;
+          }
         }
 
         // Add size only if changed
@@ -327,7 +377,7 @@ export default function CMSForm({
           />
         </Stack>
 
-        {/* Video */}
+        {/* 🎥 Video Upload */}
         <Button
           component="label"
           variant="outlined"
@@ -342,6 +392,32 @@ export default function CMSForm({
           />
         </Button>
         {video && <Typography>🎬 {video.name}</Typography>}
+        {initialData?.video?.s3Key && !video && (
+          <Typography color="textSecondary">
+            Existing Video: {initialData.video.s3Key}
+          </Typography>
+        )}
+
+        {/* 💬 Subtitle Upload */}
+        <Button
+          component="label"
+          variant="outlined"
+          startIcon={<UploadFileIcon />}
+        >
+          {existingSubtitle ? "Replace Subtitles" : "Upload Subtitles"}
+          <input
+            type="file"
+            hidden
+            accept=".vtt,.srt"
+            onChange={(e) => setSubtitleFile(e.target.files[0])}
+          />
+        </Button>
+        {subtitleFile && <Typography>💬 {subtitleFile.name}</Typography>}
+        {existingSubtitle && (
+          <Typography color="textSecondary">
+            Existing Subtitles: {existingSubtitle.s3Key}
+          </Typography>
+        )}
 
         {/* Action */}
         <TextField
@@ -500,6 +576,34 @@ export default function CMSForm({
               />
             </Button>
             {actionFile && <Typography>📎 {actionFile.name}</Typography>}
+
+            {actionType === "video" && (
+              <>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<UploadFileIcon />}
+                >
+                  {existingActionSubtitle
+                    ? "Replace Action Subtitles"
+                    : "Upload Action Subtitles"}
+                  <input
+                    type="file"
+                    hidden
+                    accept=".vtt,.srt"
+                    onChange={(e) => setActionSubtitleFile(e.target.files[0])}
+                  />
+                </Button>
+                {actionSubtitleFile && (
+                  <Typography>💬 {actionSubtitleFile.name}</Typography>
+                )}
+                {existingActionSubtitle && (
+                  <Typography color="textSecondary">
+                    Existing Subtitles: {existingActionSubtitle.s3Key}
+                  </Typography>
+                )}
+              </>
+            )}
           </>
         ) : null}
 

@@ -410,6 +410,7 @@ export default function HomePage() {
       return (
         <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
           <video
+            key={`${url}-${currentNode?.action?.subtitle?.s3Key}`}
             src={url}
             autoPlay
             playsInline
@@ -424,7 +425,20 @@ export default function HomePage() {
               objectFit: "contain",
               background: "black",
             }}
-          />
+          >
+            {/* subtitle track for action videos */}
+            {currentNode?.action?.subtitle?.s3Key && (
+              <track
+                src={`/api/subtitles/${encodeURIComponent(
+                  currentNode.action.subtitle.s3Key.replace("subtitles/", "")
+                )}`}
+                kind="subtitles"
+                srcLang="en"
+                label="English"
+                default
+              />
+            )}
+          </video>
         </Box>
       );
     }
@@ -498,7 +512,7 @@ export default function HomePage() {
         {currentVideo ? (
           <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
             {vvip ? (
-              // VVIP video
+              // 🎥 VVIP video (with optional subtitles)
               <video
                 key={vvip._id}
                 src={vvip.video.s3Url}
@@ -517,11 +531,24 @@ export default function HomePage() {
                 onWaiting={() => setVideoLoading(true)}
                 onPlaying={() => setVideoLoading(false)}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
+              >
+                {/* 🎬 optional subtitle track for VVIP */}
+                {vvip?.video?.subtitle?.s3Key && (
+                  <track
+                    src={`/api/subtitles/${encodeURIComponent(
+                      vvip.video.subtitle.s3Key.replace("subtitles/", "")
+                    )}`}
+                    kind="subtitles"
+                    srcLang="en"
+                    label="English"
+                    default
+                  />
+                )}
+              </video>
             ) : (
-              // Normal home / node video
+              // 🎥 Normal home / node video (with optional subtitles)
               <video
-                key={homeVideoKey}
+                key={`${homeVideoKey}-${currentNode?.video?.subtitle?.s3Key}`}
                 ref={videoRef}
                 src={currentVideo}
                 autoPlay
@@ -537,9 +564,7 @@ export default function HomePage() {
 
                   if (currentNode?.action) {
                     setSelectedSpeaker(null);
-
                     const nodeForAction = currentNode;
-
                     actionTimer.current = setTimeout(() => {
                       setOpenAction(true);
                       setCurrentNode(nodeForAction);
@@ -552,7 +577,30 @@ export default function HomePage() {
                 onWaiting={() => setVideoLoading(true)}
                 onPlaying={() => setVideoLoading(false)}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
+              >
+                {/* 🎬 optional subtitle track for Home or Node */}
+                {currentNode?.video?.subtitle?.s3Key ? (
+                  <track
+                    src={`/api/subtitles/${encodeURIComponent(
+                      currentNode.video.subtitle.s3Key.replace("subtitles/", "")
+                    )}`}
+                    kind="subtitles"
+                    srcLang="en"
+                    label="English"
+                    default
+                  />
+                ) : home?.subtitle?.s3Key ? (
+                  <track
+                    src={`/api/subtitles/${encodeURIComponent(
+                      home.subtitle.s3Key.replace("subtitles/", "")
+                    )}`}
+                    kind="subtitles"
+                    srcLang="en"
+                    label="English"
+                    default
+                  />
+                ) : null}
+              </video>
             )}
 
             {currentVideo && videoLoading && (
@@ -870,7 +918,7 @@ export default function HomePage() {
             display: "flex",
             alignItems: "center",
             zIndex: 1,
-            minWidth: 0, 
+            minWidth: 0,
           }}
         >
           <Box

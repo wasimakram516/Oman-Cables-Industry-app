@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const actionSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ["pdf", "image", "video", "iframe", "slideshow"], 
+    enum: ["pdf", "image", "video", "iframe", "slideshow"],
     required: function () {
       return !!this.parent; // only required if this node has a parent
     },
@@ -51,7 +51,7 @@ const nodeSchema = new mongoose.Schema(
       s3Key: {
         type: String,
         required: function () {
-          return !!this.parent; // only required if this node has a parent
+          return !!this.parent;
         },
       },
       s3Url: {
@@ -61,6 +61,11 @@ const nodeSchema = new mongoose.Schema(
         },
       },
       duration: { type: Number },
+
+      subtitle: {
+        s3Key: { type: String },
+        s3Url: { type: String },
+      },
     },
 
     children: [{ type: mongoose.Schema.Types.ObjectId, ref: "Node" }],
@@ -69,12 +74,12 @@ const nodeSchema = new mongoose.Schema(
     action: {
       type: actionSchema,
       required: function () {
-        return !!this.parent; // child must have an action
+        return !!this.parent;
       },
     },
 
-    x: { type: Number, default: 50 }, // X position on screen
-    y: { type: Number, default: 50 }, // Y position on screen
+    x: { type: Number, default: 50 },
+    y: { type: Number, default: 50 },
 
     isActive: { type: Boolean, default: true },
   },

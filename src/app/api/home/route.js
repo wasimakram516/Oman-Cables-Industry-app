@@ -13,7 +13,7 @@ const s3 = new S3Client({
   },
 });
 
-// 📌 GET home video
+// 📌 GET home video + subtitle
 export async function GET() {
   try {
     await dbConnect();
@@ -21,26 +21,30 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       video: home?.video || null,
+      subtitle: home?.subtitle || null,
     });
   } catch (err) {
     console.error("❌ Home GET error:", err);
     return NextResponse.json(
-      { ok: false, error: err.message, video: null },
+      { ok: false, error: err.message, video: null, subtitle: null },
       { status: 500 }
     );
   }
 }
 
-// 📌 UPLOAD/REPLACE home video via presigned
+// 📌 POST → presign OR save record
 export async function POST(req) {
   try {
     await dbConnect();
     const body = await req.json();
 
-    // Case A: client asks for presign
+    // Case A: presign request
     if (body.presign) {
       const { fileName, fileType } = body;
-      const folder = "videos";
+
+      // folder name based on type (videos / subtitles)
+      const isSubtitle = fileType.includes("vtt") || fileType.includes("srt");
+      const folder = isSubtitle ? "subtitles" : "videos";
       const key = `${folder}/${Date.now()}-${fileName}`;
 
       const command = new PutObjectCommand({
@@ -48,6 +52,7 @@ export async function POST(req) {
         Key: key,
         ContentType: fileType,
       });
+
       const uploadURL = await getSignedUrl(s3, command, { expiresIn: 60 });
 
       return NextResponse.json({
@@ -59,7 +64,7 @@ export async function POST(req) {
     }
 
     // Case B: client notifies after upload
-    const { video } = body;
+    const { video, subtitle } = body;
     if (!video) {
       return NextResponse.json(
         { ok: false, error: "No video data provided" },
@@ -68,18 +73,29 @@ export async function POST(req) {
     }
 
     let home = await Home.findOne();
-    if (home?.video?.s3Key) {
+
+    // Delete old video/subtitle if exist
+    if (home?.video?.s3Key && home.video.s3Key !== video.s3Key) {
       await deleteFromS3(home.video.s3Key);
     }
+    if (home?.subtitle?.s3Key && subtitle && home.subtitle.s3Key !== subtitle.s3Key) {
+      await deleteFromS3(home.subtitle.s3Key);
+    }
 
+    // Create or update
     if (!home) {
-      home = await Home.create({ video });
+      home = await Home.create({ video, subtitle });
     } else {
       home.video = video;
+      if (subtitle) home.subtitle = subtitle;
       await home.save();
     }
 
-    return NextResponse.json({ ok: true, video: home.video });
+    return NextResponse.json({
+      ok: true,
+      video: home.video,
+      subtitle: home.subtitle || null,
+    });
   } catch (err) {
     console.error("❌ Home video POST error:", err);
     return NextResponse.json(
@@ -89,7 +105,7 @@ export async function POST(req) {
   }
 }
 
-// 📌 DELETE home video
+// 📌 DELETE video + subtitle
 export async function DELETE() {
   try {
     await dbConnect();
@@ -98,26 +114,24 @@ export async function DELETE() {
     if (!home) {
       return NextResponse.json({
         ok: true,
-        message: "No home video exists",
-        video: null,
+        message: "No home video found",
       });
     }
 
-    if (home.video?.s3Key) {
-      await deleteFromS3(home.video.s3Key);
-    }
+    // Delete from S3 if exist
+    if (home.video?.s3Key) await deleteFromS3(home.video.s3Key);
+    if (home.subtitle?.s3Key) await deleteFromS3(home.subtitle.s3Key);
 
-    await Home.deleteMany({}); 
+    await Home.deleteMany({});
 
     return NextResponse.json({
       ok: true,
-      message: "Home video deleted",
-      video: null,
+      message: "Home video and subtitle deleted",
     });
   } catch (err) {
-    console.error("❌ Home video delete error:", err);
+    console.error("❌ Home video DELETE error:", err);
     return NextResponse.json(
-      { ok: false, error: err.message, video: null },
+      { ok: false, error: err.message },
       { status: 500 }
     );
   }
