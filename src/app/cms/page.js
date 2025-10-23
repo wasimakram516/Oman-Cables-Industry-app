@@ -22,6 +22,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import VideoCameraBackIcon from "@mui/icons-material/VideoCameraBack";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
 
 import NodeAccordionTree from "@/components/NodeAccordionTree";
 import CMSForm from "@/components/CMSForm";
@@ -405,6 +406,8 @@ export default function CMSPage() {
           <Button
             onClick={() => setDeleteConfirmOpen(false)}
             disabled={deleting}
+            startIcon={<CloseIcon />}
+            variant="outlined"
           >
             Cancel
           </Button>
@@ -413,12 +416,9 @@ export default function CMSPage() {
             color="error"
             variant="contained"
             disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
           >
-            {deleting ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              "Delete"
-            )}
+            {deleting ? "Deleting..." : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
