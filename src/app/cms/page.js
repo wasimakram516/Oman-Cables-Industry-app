@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  Avatar,
   FormControlLabel,
   Switch,
 } from "@mui/material";
@@ -27,7 +26,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import NodeAccordionTree from "@/components/NodeAccordionTree";
 import CMSForm from "@/components/CMSForm";
 import HomeVideoModal from "@/components/HomeVideoModal";
-import AgendaModal from "@/components/AgendaModal";
 import FullPageLoader from "@/components/FullPageLoader";
 import VVIPForm from "@/components/VVIPForm";
 
@@ -43,11 +41,6 @@ export default function CMSPage() {
   // home video state
   const [openHomeModal, setOpenHomeModal] = useState(false);
   const [homeVideo, setHomeVideo] = useState(null);
-
-  // agenda state
-  const [openAgendaModal, setOpenAgendaModal] = useState(false);
-  const [agenda, setAgenda] = useState(null);
-  const [editAgendaIndex, setEditAgendaIndex] = useState(null);
 
   // vvips state
   const [vvips, setVvips] = useState([]);
@@ -86,17 +79,6 @@ export default function CMSPage() {
     }
   };
 
-  const fetchAgenda = async () => {
-    try {
-      const res = await fetch("/api/agenda");
-      if (!res.ok) throw new Error(res.statusText);
-      const data = await res.json();
-      return Array.isArray(data) ? data[0] || null : null;
-    } catch (err) {
-      console.error("❌ fetchAgenda error:", err);
-      return null;
-    }
-  };
 
   const fetchVvips = async () => {
     try {
@@ -112,15 +94,13 @@ export default function CMSPage() {
   const refreshAll = async () => {
     setLoading(true);
     try {
-      const [treeData, homeData, agendaData, vvipsData] = await Promise.all([
+      const [treeData, homeData, vvipsData] = await Promise.all([
         fetchTree(),
         fetchHomeVideo(),
-        fetchAgenda(),
         fetchVvips(),
       ]);
       setTree(treeData || []);
       setHomeVideo(homeData || null);
-      setAgenda(agendaData || null);
       setVvips(vvipsData || []);
     } finally {
       setLoading(false);
@@ -138,18 +118,7 @@ export default function CMSPage() {
     if (!nodeToDelete) return;
     setDeleting(true);
     try {
-      if (nodeToDelete.type === "agenda") {
-        const updatedItems = agenda.items.filter(
-          (it) => it._id !== nodeToDelete._id // 👈 delete by unique _id
-        );
-        const payload = { items: updatedItems };
-        await fetch(`/api/agenda/${agenda._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        setAgenda(await fetchAgenda());
-      } else if (nodeToDelete.type === "node") {
+      if (nodeToDelete.type === "node") {
         await fetch(`/api/nodes/${nodeToDelete._id}`, { method: "DELETE" });
         setTree(await fetchTree());
       } else if (nodeToDelete.type === "vvip") {
@@ -175,7 +144,7 @@ export default function CMSPage() {
       }}
     >
       <Typography variant="h4" gutterBottom>
-        CMS – Manage Nodes, Agenda & VVIPs
+        CMS – Manage Nodes & VVIPs
       </Typography>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
@@ -197,17 +166,6 @@ export default function CMSPage() {
           }}
         >
           Create Node
-        </Button>
-        <Button
-          variant="contained"
-          color="success"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setOpenAgendaModal(true);
-            setEditAgendaIndex(null);
-          }}
-        >
-          Add Speaker
         </Button>
         <Button
           variant="contained"
@@ -262,144 +220,6 @@ export default function CMSPage() {
             }}
           />
 
-          {/* Agenda */}
-          {agenda && (
-            <Box sx={{ mt: 4 }}>
-              <Typography variant="h5" gutterBottom>
-                Event Agenda
-              </Typography>
-              {agenda.items && agenda.items.length > 0 ? (
-                [...agenda.items]
-                  .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                  .map((item, idx) => (
-                    <Paper
-                      key={idx}
-                      sx={{
-                        p: 2,
-                        mb: 1.5,
-                        backgroundColor: item.isActive ? "#e8f5e9" : "#fff",
-                        border: item.isActive
-                          ? "2px solid #4caf50"
-                          : "1px solid #ccc",
-                        borderRadius: 2,
-                        boxShadow: item.isActive
-                          ? "0 0 12px rgba(76, 175, 80, 0.5)"
-                          : "none",
-                      }}
-                    >
-                      <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        alignItems="center"
-                      >
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          {item.startTime} – {item.endTime}
-                        </Typography>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          {/* Toggle Active */}
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                checked={item.isActive || false}
-                                onChange={async (e) => {
-                                  const updatedItems = agenda.items.map(
-                                    (it) => ({
-                                      ...it,
-                                      isActive:
-                                        it._id === item._id
-                                          ? e.target.checked
-                                          : false,
-                                    })
-                                  );
-
-                                  const payload = { items: updatedItems };
-                                  await fetch(`/api/agenda/${agenda._id}`, {
-                                    method: "PUT",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify(payload),
-                                  });
-                                  setAgenda({ ...agenda, items: updatedItems });
-                                }}
-                              />
-                            }
-                            label="Active"
-                          />
-
-                          <IconButton
-                            color="primary"
-                            onClick={() => {
-                              setOpenAgendaModal(true);
-                              setEditAgendaIndex(item._id);
-                            }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton
-                            color="error"
-                            onClick={() => handleDeleteClick(item, "agenda")}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Stack>
-                      </Stack>
-
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={1}
-                        mt={1}
-                      >
-                        <Avatar
-                          src={item.photoUrl || ""}
-                          alt={item.name}
-                          sx={{ width: 40, height: 40 }}
-                        />
-                        <Box>
-                          <Typography variant="h6">{item.name}</Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {item.title ? item.title : ""}
-                            {item.company
-                              ? item.title
-                                ? `, ${item.company}`
-                                : item.company
-                              : ""}
-                            {item.role ? ` • ${item.role}` : ""}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                      {/* Speaker info image preview */}
-                      {item.infoImageUrl && (
-                        <Box mt={1}>
-                          <img
-                            src={item.infoImageUrl}
-                            alt={`${item.name}-info`}
-                            style={{
-                              width: "auto",
-                              height: 120,
-                              borderRadius: 6,
-                              border: "1px solid #ddd",
-                              objectFit: "cover",
-                            }}
-                          />
-                        </Box>
-                      )}
-
-                      {item.isActive && (
-                        <Typography variant="caption" color="green">
-                          🔴 Active Now
-                        </Typography>
-                      )}
-                    </Paper>
-                  ))
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  No agenda items yet.
-                </Typography>
-              )}
-            </Box>
-          )}
 
           {/* VVIPs */}
           <Box sx={{ mt: 4 }}>
@@ -609,18 +429,6 @@ export default function CMSPage() {
           open={openHomeModal}
           onClose={() => setOpenHomeModal(false)}
           onUploaded={refreshAll}
-        />
-      )}
-      {openAgendaModal && (
-        <AgendaModal
-          open={openAgendaModal}
-          onClose={() => {
-            setOpenAgendaModal(false);
-            setEditAgendaIndex(null);
-            refreshAll();
-          }}
-          agenda={agenda}
-          editId={editAgendaIndex}
         />
       )}
     </Box>
