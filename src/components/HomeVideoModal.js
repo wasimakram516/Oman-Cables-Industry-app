@@ -10,7 +10,11 @@ import {
   LinearProgress,
   Box,
   Typography,
+  Stack
 } from "@mui/material";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import SaveIcon from "@mui/icons-material/Save";
+import CloseIcon from "@mui/icons-material/Close";
 
 export default function HomeVideoModal({ open, onClose, onUploaded }) {
   const [file, setFile] = useState(null); // video
@@ -145,43 +149,66 @@ export default function HomeVideoModal({ open, onClose, onUploaded }) {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Upload Home Page Video</DialogTitle>
       <DialogContent>
-        {/* Video file input */}
-        <input
-          type="file"
-          accept="video/*"
-          onChange={(e) => setFile(e.target.files[0])}
-          style={{ marginBottom: "1rem" }}
-        />
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            fullWidth
+          >
+            Upload Video
+            <input
+              type="file"
+              hidden
+              accept="video/*"
+              onChange={(e) => setFile(e.target.files[0])}
+            />
+          </Button>
+          {file && <Typography>🎬 {file.name}</Typography>}
 
-        {/* Subtitle file input (optional) */}
-        <input
-          type="file"
-          accept=".vtt"
-          onChange={(e) => setSubtitleFile(e.target.files[0])}
-          style={{ marginBottom: "1rem" }}
-        />
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            fullWidth
+          >
+            Upload Subtitles (optional)
+            <input
+              type="file"
+              hidden
+              accept=".vtt,.srt"
+              onChange={(e) => setSubtitleFile(e.target.files[0])}
+            />
+          </Button>
+          {subtitleFile && <Typography>💬 {subtitleFile.name}</Typography>}
 
-        {loading && (
-          <Box sx={{ my: 2 }}>
-            <LinearProgress variant="determinate" value={progress} />
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              {progress}%
-            </Typography>
-          </Box>
-        )}
+          {loading && (
+            <Box sx={{ width: "100%", mt: 2 }}>
+              <LinearProgress variant="determinate" value={progress} />
+              <Typography variant="body2">{progress}%</Typography>
+            </Box>
+          )}
+
+          <Stack direction="row" spacing={2} sx={{ mt: 2, justifyContent: "flex-end" }}>
+            <Button
+              onClick={onClose}
+              disabled={loading}
+              variant="outlined"
+              startIcon={<CloseIcon />}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleUpload}
+              disabled={!file || loading}
+            >
+              Upload
+            </Button>
+          </Stack>
+        </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleUpload}
-          variant="contained"
-          disabled={!file || loading}
-        >
-          Upload
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }
